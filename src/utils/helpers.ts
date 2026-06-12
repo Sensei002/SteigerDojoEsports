@@ -69,5 +69,7 @@ export const authErrorMessage = (code: string): string => {
     'auth/too-many-requests': 'Too many attempts. Please try again later.',
     'auth/popup-closed-by-user': 'Sign-in popup was closed before completing.',
   };
-  return map[code] ?? 'Something went wrong. Please try again.';
+  // Surface the raw code for unmapped errors so problems are diagnosable
+  // instead of hidden behind a generic message.
+  return map[code] ?? `Something went wrong (${code || 'unknown'}). Please try again.`;
 };
