@@ -33,6 +33,25 @@ if (!isFirebaseConfigured) {
     '\nCreate a .env file (copy .env.example) and add your Firebase project keys,' +
       ' then restart `npm run dev`. The UI will load, but login and data will not work until then.'
   );
+
+  // On a deployed build this almost always means the GitHub Actions secrets
+  // were missing/empty when the site was built. Show a readable banner instead
+  // of a blank screen so the cause is obvious.
+  if (typeof document !== 'undefined') {
+    const el = document.getElementById('root');
+    if (el) {
+      el.innerHTML =
+        '<div style="font-family:system-ui,sans-serif;max-width:640px;margin:15vh auto;padding:2rem;' +
+        'color:#e6e6e6;background:#161616;border:1px solid #e11d2a;border-radius:12px;line-height:1.6">' +
+        '<h1 style="color:#e11d2a;margin-top:0">Firebase is not configured</h1>' +
+        '<p>This deployed build was compiled without your Firebase keys. The most ' +
+        'common cause is missing or empty <b>GitHub Actions secrets</b>.</p>' +
+        '<p>Fix: add every <code>VITE_FIREBASE_*</code> and <code>VITE_CLOUDINARY_*</code> ' +
+        'value under <b>Settings → Secrets and variables → Actions</b>, then ' +
+        '<b>re-run the deploy workflow</b> (Actions → latest run → Re-run all jobs).</p>' +
+        '</div>';
+    }
+  }
 }
 
 // initializeApp + getAuth can throw synchronously if apiKey is empty/undefined.
