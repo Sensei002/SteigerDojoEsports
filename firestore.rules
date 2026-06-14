@@ -20,14 +20,23 @@ service cloud.firestore {
     function isStaff() {
       return isSignedIn() && userRole() in ['admin', 'organizer'];
     }
+    // Privileged (staff) roles. Users may not grant these to themselves.
+    function isStaffRole(role) {
+      return role in ['admin', 'organizer'];
+    }
 
-    // Users: public read, self-write. Only admins may change roles.
+    // Users: public read, self-write.
+    // A user may edit their own profile, but may only change `role` among the
+    // non-privileged roles (player <-> captain — e.g. when creating a team or
+    // leaving one). Promotion to a staff role (admin/organizer) is admin-only.
     match /users/{uid} {
       allow read: if true;
       allow create: if isSelf(uid);
-      allow update: if isSelf(uid)
-        && (!('role' in request.resource.data) || request.resource.data.role == resource.data.role)
-        || isAdmin();
+      allow update: if isAdmin()
+        || (isSelf(uid)
+            && (!('role' in request.resource.data)
+                || request.resource.data.role == resource.data.role
+                || (!isStaffRole(request.resource.data.role) && !isStaffRole(resource.data.role))));
       allow delete: if isAdmin();
     }
 
