@@ -57,6 +57,16 @@ export const colorFromString = (str: string): string => {
 export const truncate = (text: string, len = 120): string =>
   text.length > len ? `${text.slice(0, len).trimEnd()}…` : text;
 
+/**
+ * Remove keys whose value is `undefined`. Firestore rejects `undefined` field
+ * values, so call this on any object before writing it via addDoc/setDoc/updateDoc.
+ * (A field left out entirely is fine — it just isn't written.)
+ */
+export const stripUndefined = <T extends Record<string, unknown>>(obj: T): Partial<T> =>
+  Object.fromEntries(
+    Object.entries(obj).filter(([, v]) => v !== undefined)
+  ) as Partial<T>;
+
 /** Map a Firebase auth error code to a friendly message. */
 export const authErrorMessage = (code: string): string => {
   const map: Record<string, string> = {

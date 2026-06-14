@@ -13,6 +13,7 @@ import {
   serverTimestamp,
 } from 'firebase/firestore';
 import { db } from '@/firebase/config';
+import { stripUndefined } from '@/utils/helpers';
 import type { Tournament, TournamentStatus, GameId } from '@/types';
 
 const TOURNAMENTS = 'tournaments';
@@ -23,7 +24,9 @@ export const createTournament = (
   addDoc(collection(db, TOURNAMENTS), {
     registeredTeams: 0,
     featured: false,
-    ...data,
+    // Drop optional fields the form left blank (banner, dates) — Firestore
+    // rejects `undefined` values.
+    ...stripUndefined(data),
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   }).then((ref) => ref.id);
@@ -34,7 +37,7 @@ export const getTournament = async (id: string): Promise<Tournament | null> => {
 };
 
 export const updateTournament = (id: string, data: Partial<Tournament>) =>
-  updateDoc(doc(db, TOURNAMENTS, id), { ...data, updatedAt: serverTimestamp() });
+  updateDoc(doc(db, TOURNAMENTS, id), { ...stripUndefined(data), updatedAt: serverTimestamp() });
 
 export const deleteTournament = (id: string) =>
   deleteDoc(doc(db, TOURNAMENTS, id));
