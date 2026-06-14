@@ -36,8 +36,10 @@ const CreateTeam = () => {
       const captain: TeamMember = {
         uid: user.uid,
         username: user.username,
-        avatarUrl: user.avatarUrl,
         role: 'captain',
+        // Only include avatarUrl when set — Firestore rejects `undefined`,
+        // even nested inside the members array.
+        ...(user.avatarUrl ? { avatarUrl: user.avatarUrl } : {}),
       };
       const teamId = await createTeam({
         name, tag: tag.toUpperCase(), game, region, bio,

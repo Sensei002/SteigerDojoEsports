@@ -13,6 +13,7 @@ import {
   type Unsubscribe,
 } from 'firebase/firestore';
 import { db } from '@/firebase/config';
+import { stripUndefined } from '@/utils/helpers';
 import type { Match, MatchMessage, MatchStatus } from '@/types';
 
 const MATCHES = 'matches';
@@ -92,7 +93,9 @@ export const setMatchStatus = (id: string, status: MatchStatus) =>
 export const sendMatchMessage = (
   data: Omit<MatchMessage, 'id' | 'createdAt'>
 ) =>
-  addDoc(collection(db, MESSAGES), { ...data, createdAt: serverTimestamp() });
+  // stripUndefined: a sender with no avatar would otherwise pass
+  // avatarUrl: undefined, which Firestore rejects.
+  addDoc(collection(db, MESSAGES), { ...stripUndefined(data), createdAt: serverTimestamp() });
 
 export const subscribeToMatchChat = (
   matchId: string,

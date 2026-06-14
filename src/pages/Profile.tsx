@@ -84,7 +84,14 @@ const Profile = () => {
   const handleInvite = async (inv: TeamInvite, accept: boolean) => {
     if (!me) return;
     if (accept && me.teamId) return error('Leave your current team before joining another.');
-    const member: TeamMember = { uid: me.uid, username: me.username, avatarUrl: me.avatarUrl, role: 'player' };
+    // Only include avatarUrl when set — Firestore rejects `undefined`, even
+    // nested inside the team's members array.
+    const member: TeamMember = {
+      uid: me.uid,
+      username: me.username,
+      role: 'player',
+      ...(me.avatarUrl ? { avatarUrl: me.avatarUrl } : {}),
+    };
     await respondToInvite(inv, accept, member);
     await refreshUser();
     success(accept ? `Joined ${inv.teamName}!` : 'Invite declined.');
