@@ -16,6 +16,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '@/firebase/config';
 import { updateUserProfile } from './userService';
+import { deepStripUndefined } from '@/utils/helpers';
 import type { Team, TeamInvite, TeamMember } from '@/types';
 
 const TEAMS = 'teams';
@@ -25,8 +26,13 @@ export const createTeam = async (
   data: Omit<Team, 'id' | 'createdAt' | 'updatedAt'>
 ): Promise<string> => {
   const ref = await addDoc(collection(db, TEAMS), {
-    ...data,
-    stats: data.stats ?? { wins: 0, losses: 0, tournamentsPlayed: 0, trophies: 0 },
+    // deepStripUndefined: Firestore rejects `undefined` anywhere in the doc,
+    // including nested inside the `members` array (e.g. a member with no
+    // avatarUrl). Strip the caller's data first, then add server sentinels.
+    ...deepStripUndefined({
+      ...data,
+      stats: data.stats ?? { wins: 0, losses: 0, tournamentsPlayed: 0, trophies: 0 },
+    }),
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   });

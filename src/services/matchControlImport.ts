@@ -1,5 +1,6 @@
 import { collection, addDoc, getDocs, query, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/firebase/config';
+import { deepStripUndefined } from '@/utils/helpers';
 import type { Team, TeamMember } from '@/types';
 
 /**
@@ -121,7 +122,7 @@ export const importMatchControlTeams = async (
     if (t.logo) team.logoUrl = t.logo;
 
     await addDoc(collection(db, TEAMS), {
-      ...team,
+      ...deepStripUndefined(team),
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     });

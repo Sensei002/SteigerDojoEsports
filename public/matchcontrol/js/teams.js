@@ -182,6 +182,59 @@
     clearForm();
     $('editorCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
+
+  /* --------------------- import from main site (Firestore) -------------------
+   * The main SteigerDojoEsports site stores its teams in Firestore (`teams`
+   * collection), while Match Control stores them in the Realtime Database under
+   * the current room. This pulls every site team into this room, keyed by the
+   * Firestore document id so re-importing refreshes in place instead of
+   * duplicating (same convention as the site's auto-sync, syncTeamToMatchControl).
+   * Only works in Firebase mode — Firestore needs the initialized Firebase app
+   * that store.js sets up when a config is present.
+   * ------------------------------------------------------------------------- */
+  $('importSiteBtn').onclick = function () {
+    if (!Store.usingFirebase || !window.firebase || !firebase.firestore) {
+      UI.toast('Connect Firebase first (Settings) to import from the site.');
+      return;
+    }
+    if (!confirm('Import all teams from the main site into this room? Teams already imported are refreshed, not duplicated.')) return;
+
+    const btn = $('importSiteBtn');
+    btn.disabled = true;
+    firebase.firestore().collection('teams').get()
+      .then(function (snap) {
+        const writes = [];
+        snap.forEach(function (doc) {
+          writes.push(Store.set('teams/' + doc.id, toMcTeam(doc.data())));
+        });
+        return Promise.all(writes).then(function () { return writes.length; });
+      })
+      .then(function (n) {
+        UI.toast(n ? ('Imported ' + n + ' team' + (n === 1 ? '' : 's') + ' from the site') : 'No teams found on the site.');
+      })
+      .catch(function (err) {
+        UI.toast(err && err.message ? err.message : 'Import failed.');
+      })
+      .then(function () { btn.disabled = false; });
+  };
+
+  // Map a main-site Firestore team -> Match Control team shape. Mirrors
+  // src/services/matchControlSync.ts so imports match the site's auto-sync.
+  function toMcTeam(d) {
+    d = d || {};
+    const name = (d.name || '').trim();
+    return {
+      name: name,
+      short: (d.tag || '').trim() || name.slice(0, 3).toUpperCase(),
+      color: '#1e90ff',           // site teams have no color; Match Control's default
+      logo: d.logoUrl || '',      // RTDB rejects undefined — fall back to ''
+      players: (d.members || [])
+        .filter(function (m) { return m && m.username && String(m.username).trim(); })
+        .map(function (m) {
+          return { name: String(m.username).trim(), role: m.role || '', platform: 'ubi' };
+        })
+    };
+  }
   $('cancelBtn').onclick = clearForm;
   $('addPlayer').onclick = function () { addPlayerRow(); };
 

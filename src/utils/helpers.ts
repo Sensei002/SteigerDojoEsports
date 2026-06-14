@@ -67,6 +67,32 @@ export const stripUndefined = <T extends Record<string, unknown>>(obj: T): Parti
     Object.entries(obj).filter(([, v]) => v !== undefined)
   ) as Partial<T>;
 
+/**
+ * Recursively remove every `undefined` value — object keys AND values nested
+ * inside arrays/objects. Firestore rejects `undefined` anywhere in a document
+ * (e.g. an optional `avatarUrl` on a member buried in a `members` array), and
+ * the shallow `stripUndefined` above can't reach those. Use this on whole
+ * documents before addDoc/setDoc. Firestore sentinels (serverTimestamp(),
+ * increment(), arrayUnion(), etc.) and Timestamps are left untouched.
+ */
+export const deepStripUndefined = <T>(value: T): T => {
+  if (Array.isArray(value)) {
+    return value
+      .filter((v) => v !== undefined)
+      .map((v) => deepStripUndefined(v)) as unknown as T;
+  }
+  // Only descend into plain objects — leave class instances (Firestore
+  // FieldValue sentinels, Timestamp, Date, etc.) exactly as they are.
+  if (value && typeof value === 'object' && Object.getPrototypeOf(value) === Object.prototype) {
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>)
+        .filter(([, v]) => v !== undefined)
+        .map(([k, v]) => [k, deepStripUndefined(v)])
+    ) as T;
+  }
+  return value;
+};
+
 /** Map a Firebase auth error code to a friendly message. */
 export const authErrorMessage = (code: string): string => {
   const map: Record<string, string> = {
