@@ -22,7 +22,7 @@ import type { Team, TeamMember } from '@/types';
 // there is a single source of truth; falls back to the project's default RTDB URL.
 const MC_DB_URL =
   import.meta.env.VITE_FIREBASE_DATABASE_URL ||
-  'https://steigerdojoesports-default-rtdb.firebaseio.com';
+  'https://steigerdojoesports-default-rtdb.asia-southeast1.firebasedatabase.app';
 const MC_ROOM = 'main';
 
 // All Match Control teams are Rainbow Six Siege rosters from the SEA/Asia scene.
