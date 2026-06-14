@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Teams · STGRMatchControl</title>
+<link rel="stylesheet" href="css/app.css">
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
+<script src="firebase-config.js"></script>
+<script src="js/auth.js"></script>
+<style>html.stgr-auth-pending body{visibility:hidden}</style>
+<script>document.documentElement.className+=' stgr-auth-pending';STGRAuth.requireLogin();</script>
+<script src="js/store.js"></script>
+<script src="js/ui.js"></script>
+</head>
+<body>
+<div class="wrap">
+  <h1>Teams</h1>
+  <p class="section-sub">Create teams once — they feed the scorebug, roster overlay and map ban. Logos and rosters update everywhere instantly.</p>
+
+  <!-- LIST -->
+  <div class="card" style="margin-bottom:18px"><span class="accent-edge"></span>
+    <div class="flex-between"><h2>Saved teams</h2>
+      <button class="btn primary sm" id="newBtn">+ New team</button></div>
+    <div class="team-grid" id="teamList" style="margin-top:14px"></div>
+  </div>
+
+  <div class="grid cols-2">
+    <!-- EDITOR -->
+    <div class="card" id="editorCard"><span class="accent-edge"></span>
+      <h2 id="editorTitle">New team</h2>
+      <input type="hidden" id="teamId">
+      <div class="row">
+        <div class="field" style="flex:2">
+          <label>Team name</label>
+          <input type="text" id="tName" placeholder="e.g. Team Empire" maxlength="40">
+        </div>
+        <div class="field" style="flex:1">
+          <label>Short tag</label>
+          <input type="text" id="tShort" placeholder="EMP" maxlength="6">
+        </div>
+        <div class="field" style="flex:0 0 70px">
+          <label>Color</label>
+          <input type="color" id="tColor" value="#1e90ff">
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Logo</label>
+        <div class="row tight" style="align-items:center">
+          <img id="logoPreview" class="logo-chip" style="width:56px;height:56px;flex:0 0 auto" alt="">
+          <div style="flex:1">
+            <input type="file" id="logoFile" accept="image/*" style="font-size:12px">
+            <div class="hint">Upload (auto-resized to 256px) — or paste an image URL below.</div>
+            <input type="url" id="logoUrl" placeholder="https://…/logo.png" style="margin-top:6px">
+          </div>
+          <button class="btn ghost sm" id="logoClear" type="button">Clear</button>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- EDITOR: roster -->
+    <div class="card"><span class="accent-edge"></span>
+      <h3 style="margin-top:0">Roster</h3>
+      <p class="hint" style="margin:0 0 8px">Enter the exact <b>tracker.network IGN</b> &amp; pick the platform — these fetch each player's live K/D, HS% and Win% on the Roster overlay (when the stats proxy is set in Settings).</p>
+      <div id="players"></div>
+      <button class="btn ghost sm" id="addPlayer" type="button">+ Add player</button>
+
+      <div class="divider"></div>
+      <div class="btn-group">
+        <button class="btn primary" id="saveBtn">Save team</button>
+        <button class="btn bad" id="deleteBtn" style="display:none">Delete</button>
+        <button class="btn ghost" id="cancelBtn">Clear form</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="js/teams.js"></script>
+</body>
+</html>

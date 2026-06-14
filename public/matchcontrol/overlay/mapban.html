@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Map Ban · STGR</title>
+<link rel="stylesheet" href="../css/overlay.css">
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
+<script src="../firebase-config.js"></script>
+<script src="../js/store.js"></script>
+<script src="../js/overlay-common.js"></script>
+</head>
+<body>
+<div class="stage">
+  <div class="mapban" id="mapban">
+    <div class="mb-head" id="head">MAP VETO</div>
+    <div class="mb-sub" id="sub">BEST OF 3</div>
+    <div class="mb-grid" id="grid"></div>
+  </div>
+</div>
+
+<script>
+const $ = function (id) { return document.getElementById(id); };
+let prevShape = '';        // structure signature (actions + teams)
+let prevResolved = [];     // which steps had a map last time
+
+Store.subscribe('', function (val) {
+  const st = Store.withDefaults(val);
+  OV.applyTheme(st.theme);
+  const mb = st.mapban;
+
+  $('mapban').classList.toggle('show', !!mb.visible);
+  if (!mb.visible) return;
+
+  const A = OV.team(st, 'A'), B = OV.team(st, 'B');
+  function teamLabel(code) {
+    if (code === 'A') return (A && (A.short || A.name)) || 'TEAM A';
+    if (code === 'B') return (B && (B.short || B.name)) || 'TEAM B';
+    return '';
+  }
+  $('sub').textContent = 'BEST OF ' + (mb.format || 'BO3').replace(/\D/g, '');
+
+  const steps = mb.steps || [];
+  const active = mb.activeStep || 0;
+  const grid = $('grid');
+  const resolved = function (s) { return !!s.map; };
+
+  function stateLabel(s) {
+    return s.action === 'decider' ? 'DECIDER'
+      : s.action === 'pick' ? 'PICK · ' + teamLabel(s.team)
+      : 'BAN · ' + teamLabel(s.team);
+  }
+  function inner(s, i) {
+    const sideTag = s.side ? '<div class="byteam">' + s.side + ' START</div>' : '';
+    return '<div class="byteam">' + (i + 1) + '</div>' +
+      '<div class="mname">' + OV.esc(s.map || (s.action === 'decider' ? 'DECIDER' : 'TBD')) + '</div>' +
+      '<div class="mstate">' + stateLabel(s) + '</div>' + sideTag;
+  }
+  function classFor(s, i) {
+    let c = 'mb-map';
+    if (resolved(s)) c += ' ' + (s.action || 'ban');   // ban/pick/decider visual only once decided
+    if (i === active) c += ' active';
+    return c;
+  }
+
+  if (!steps.length) {
+    grid.innerHTML = '<div class="mb-sub">No veto configured</div>';
+    prevShape = ''; prevResolved = []; return;
+  }
+
+  // structure signature — changes when you build/clear/change the veto format
+  const shape = steps.map(function (s) { return (s.action || '') + (s.team || ''); }).join('|');
+
+  if (shape !== prevShape) {
+    // full rebuild: cards reveal in a staggered sequence (--i drives the delay)
+    grid.innerHTML = steps.map(function (s, i) {
+      return '<div class="' + classFor(s, i) + ' reveal" style="--i:' + i + '">' + inner(s, i) + '</div>';
+    }).join('');
+  } else {
+    // same structure -> update in place so only the just-decided card animates
+    const cards = grid.children;
+    steps.forEach(function (s, i) {
+      const card = cards[i]; if (!card) return;
+      const nowRes = resolved(s), wasRes = !!prevResolved[i];
+      card.innerHTML = inner(s, i);
+      let c = classFor(s, i);
+      if (nowRes && !wasRes) c += ' just';   // slam the stamp / pop on the freshly decided map
+      card.className = c;
+      if (nowRes && !wasRes) {
+        (function (el) { setTimeout(function () { el.classList.remove('just'); }, 480); })(card);
+      }
+    });
+  }
+
+  prevShape = shape;
+  prevResolved = steps.map(resolved);
+});
+</script>
+</body>
+</html>

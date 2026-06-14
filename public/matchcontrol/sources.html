@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Browser Sources · STGRMatchControl</title>
+<link rel="stylesheet" href="css/app.css">
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
+<script src="firebase-config.js"></script>
+<script src="js/auth.js"></script>
+<style>html.stgr-auth-pending body{visibility:hidden}</style>
+<script>document.documentElement.className+=' stgr-auth-pending';STGRAuth.requireLogin();</script>
+<script src="js/store.js"></script>
+<script src="js/ui.js"></script>
+</head>
+<body>
+<div class="wrap">
+  <h1>Browser Sources</h1>
+  <p class="section-sub">Add each of these as a <b>Browser source</b> in OBS. Use canvas size <span class="kbd">1920 × 1080</span> and tick <i>“Refresh browser when scene becomes active”</i>. They update live from the Match Control panel.</p>
+
+  <div id="modeBanner"></div>
+
+  <div class="grid" id="sourceCards"></div>
+
+  <div class="card" style="margin-top:18px"><span class="accent-edge"></span>
+    <h2>OBS setup tips</h2>
+    <ul class="muted" style="line-height:1.9;padding-left:18px">
+      <li><b>Width / Height:</b> 1920 × 1080 for every overlay (they position themselves inside the frame).</li>
+      <li><b>Custom CSS:</b> leave default — backgrounds are already transparent.</li>
+      <li><b>Control from another PC/phone:</b> works only in <b>Firebase</b> mode. In Local mode, open the control panel as an OBS <i>Custom Browser Dock</i> on the same PC.</li>
+      <li><b>Right-click the source → Interact</b> is not needed; everything is driven from the panel.</li>
+    </ul>
+  </div>
+</div>
+
+<script>
+UI.mount('sources');
+
+const SOURCES = [
+  { name:'Scorebug',        file:'overlay/scorebug.html',   size:'1920 × 1080', d:'Top-center match bar: teams, score, side, map, best-of.' },
+  { name:'Roster',          file:'overlay/roster.html',     size:'1920 × 1080', d:'Full-screen team line-up. Toggle + pick team from the panel.' },
+  { name:'Lower Third',     file:'overlay/lowerthird.html', size:'1920 × 1080', d:'Caster names / titles. Shown in real time.' },
+  { name:'Map Ban / Veto',  file:'overlay/mapban.html',     size:'1920 × 1080', d:'Pick & ban sequence overlay (mapban.gg style).' },
+  { name:'Round History',   file:'overlay/roundhistory.html', size:'1920 × 1080', d:'Per-round map & bomb objective log with team names, logos and winners.' },
+  { name:'Starting Soon',   file:'overlay/startingsoon.html', size:'1920 × 1080', d:'Full-screen pre-show: team crests, event logo and a controllable countdown. Use in its own scene.' },
+  { name:'Tournament Bracket', file:'overlay/bracket.html',   size:'1920 × 1080', d:'Full bracket: group stage (double elim · 4 groups) + playoffs (single elim QF→SF→Final). Use in its own scene.' }
+];
+
+const wrap = document.getElementById('sourceCards');
+wrap.innerHTML = SOURCES.map(function (s, i) {
+  const url = Store.overlayUrl(s.file);
+  return '<div class="card"><span class="accent-edge"></span>' +
+    '<div class="flex-between"><h2>' + s.name + '</h2>' +
+      '<span class="pill atk">' + s.size + '</span></div>' +
+    '<p class="muted" style="margin:6px 0 12px">' + s.d + '</p>' +
+    '<div class="url-box"><input type="text" readonly value="' + url + '" id="u' + i + '">' +
+      '<button class="btn primary sm" data-copy="' + i + '">Copy</button>' +
+      '<a class="btn ghost sm" href="' + url + '" target="_blank" rel="noopener">Open</a></div>' +
+    '</div>';
+}).join('');
+
+wrap.querySelectorAll('[data-copy]').forEach(function (b) {
+  b.onclick = function () {
+    const i = b.getAttribute('data-copy');
+    UI.copy(document.getElementById('u' + i).value, SOURCES[i].name + ' URL copied!');
+  };
+});
+
+(function () {
+  const b = document.getElementById('modeBanner');
+  if (Store.usingFirebase) {
+    b.className = 'banner info';
+    b.innerHTML = '🔗 <b>Firebase mode</b> — these URLs work from any device. Room: <span class="kbd">' + Store.room + '</span>';
+  } else {
+    b.className = 'banner warn';
+    b.innerHTML = '🧪 <b>Local mode</b> — these overlays only sync with a control panel open in the <b>same browser</b>. Configure Firebase in <a href="settings.html">Settings</a> for true remote control.';
+  }
+})();
+</script>
+</body>
+</html>

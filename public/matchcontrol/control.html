@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Match Control · STGRMatchControl</title>
+<link rel="stylesheet" href="css/app.css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Barlow+Condensed:ital,wght@0,600;0,700;1,600;1,700&family=Bebas+Neue&family=Orbitron:wght@600;800&family=Oswald:wght@500;700&family=Rajdhani:wght@600;700&family=Saira+Condensed:ital,wght@0,600;0,700;1,600;1,700&family=Teko:wght@500;700&display=swap">
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
+<script src="firebase-config.js"></script>
+<script src="js/auth.js"></script>
+<style>html.stgr-auth-pending body{visibility:hidden}</style>
+<script>document.documentElement.className+=' stgr-auth-pending';STGRAuth.requireLogin();</script>
+<script src="js/store.js"></script>
+<script src="js/overlay-common.js"></script>
+<script src="js/ui.js"></script>
+</head>
+<body>
+<div class="wrap">
+  <div class="flex-between">
+    <div><h1>Match Control</h1>
+      <p class="section-sub" style="margin:0">Everything here pushes to your OBS overlays live.</p></div>
+    <a class="btn ghost" href="sources.html">🎥 Browser sources</a>
+  </div>
+
+  <div id="noTeams" class="banner warn" style="display:none">
+    ⚠️ No teams yet. <a href="teams.html">Create teams first</a> so you can select them below.
+  </div>
+
+  <!-- ============================== GAME ============================== -->
+  <div class="card" style="margin-top:18px"><span class="accent-edge"></span>
+    <div class="flex-between">
+      <div><h2 style="margin:0">Game</h2>
+        <p class="section-sub" style="margin:2px 0 0">Sets the map pool &amp; objectives. Rainbow Six is the default.</p></div>
+      <div class="seg" id="gameSel">
+        <button data-v="r6">Rainbow Six</button><button data-v="valorant">VALORANT</button>
+      </div>
+    </div>
+    <div class="hint">Switching loads that game's maps and clears the current map &amp; veto (round-history log is kept).</div>
+  </div>
+
+  <!-- ============================ SCOREBUG ============================ -->
+  <div class="card" style="margin-top:18px"><span class="accent-edge"></span>
+    <div class="flex-between"><h2>Scorebug</h2>
+      <label class="inline" style="margin:0;text-transform:none">
+        <span class="switch"><input type="checkbox" id="sbVisible"><span class="track"></span></span>
+        &nbsp;Show on stream</label>
+    </div>
+
+    <div class="grid cols-2" style="margin-top:14px">
+      <div>
+        <div class="field"><label>Team A</label><select id="teamA"></select></div>
+        <div class="field"><label>Score A</label>
+          <div class="inline"><div class="stepper" data-step="scoreA">
+            <button data-d="-1">−</button><div class="val" id="scoreA">0</div><button data-d="1">+</button></div>
+            <button class="btn ghost sm" id="aWin">Round win ▸</button></div>
+        </div>
+      </div>
+      <div>
+        <div class="field"><label>Team B</label><select id="teamB"></select></div>
+        <div class="field"><label>Score B</label>
+          <div class="inline"><div class="stepper" data-step="scoreB">
+            <button data-d="-1">−</button><div class="val" id="scoreB">0</div><button data-d="1">+</button></div>
+            <button class="btn ghost sm" id="bWin">Round win ▸</button></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="field"><label>Team A side</label>
+        <div class="seg atk" id="sideA"><button data-v="ATK">ATK</button><button data-v="DEF">DEF</button></div>
+      </div>
+      <div class="field"><label>Phase</label>
+        <div class="seg" id="phase"><button data-v="PRE">Pre</button><button data-v="LIVE">Live</button><button data-v="TECH">Tech</button><button data-v="END">End</button></div>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="field" style="flex:2"><label>Current map</label>
+        <div class="inline"><select id="mapSel" style="flex:1"></select>
+          <input type="text" id="mapCustom" placeholder="custom map" style="flex:1;display:none"></div>
+      </div>
+      <div class="field" style="flex:0 0 auto"><label>Round</label>
+        <div class="stepper" data-step="round"><button data-d="-1">−</button><div class="val" id="round">1</div><button data-d="1">+</button></div>
+      </div>
+      <div class="field" style="flex:2"><label>Title (optional)</label>
+        <input type="text" id="title" placeholder="e.g. Grand Final · Map 1"></div>
+    </div>
+
+    <div class="row">
+      <div class="field" style="flex:0 0 auto"><label>Series · maps won</label>
+        <div class="inline">
+          <div class="stepper" data-step="mapsA"><button data-d="-1">−</button><div class="val" id="mapsA">0</div><button data-d="1">+</button></div>
+          <span class="muted nowrap">MAPS</span>
+          <div class="stepper" data-step="mapsB"><button data-d="-1">−</button><div class="val" id="mapsB">0</div><button data-d="1">+</button></div>
+        </div>
+        <div class="hint">Shown on the scorebug for BO3 / BO5.</div>
+      </div>
+      <div class="field" style="flex:1;align-self:flex-end">
+        <button class="btn blue block" id="nextMap">⏭ Next map (award + clear rounds)</button>
+        <div class="hint">Adds a map to the current leader, then resets the round score.</div>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+    <h3 style="margin:0 0 4px">Scorebug branding</h3>
+    <div class="field">
+      <label>Event logo · scorebug center</label>
+      <div class="row tight" style="align-items:center">
+        <img id="eventLogoPreview" class="logo-chip" style="width:46px;height:46px;flex:0 0 auto" alt="">
+        <div style="flex:1">
+          <input type="file" id="eventLogoFile" accept="image/*" style="font-size:12px">
+          <div class="hint">PNG/SVG — auto-resized to 256px. Or paste a URL below.</div>
+          <input type="url" id="eventLogoUrl" placeholder="https://…/event-logo.png" style="margin-top:6px">
+        </div>
+        <button class="btn ghost sm" id="eventLogoClear" type="button">Clear</button>
+      </div>
+    </div>
+
+    <div class="btn-group">
+      <button class="btn ghost" id="undoRound">↶ Undo round</button>
+      <button class="btn blue" id="swap">⇄ Swap teams</button>
+      <button class="btn ghost" id="resetScore">Reset map score</button>
+    </div>
+  </div>
+
+  <!-- ======================== SCOREBUG MESSAGE ======================== -->
+  <div class="card"><span class="accent-edge"></span>
+    <div class="flex-between"><h2>Scorebug message · far right</h2>
+      <label class="inline" style="margin:0;text-transform:none">
+        <span class="switch"><input type="checkbox" id="smVisible"><span class="track"></span></span>
+        &nbsp;Show on stream</label>
+    </div>
+    <p class="section-sub" style="margin:4px 0 0">Pinned to the far-right of the scorebug — e.g. the event name.</p>
+
+    <div class="field" style="margin-top:14px"><label>Message text</label>
+      <input type="text" id="smText" placeholder="e.g. STGR Invitational · Grand Final">
+    </div>
+
+    <div class="row">
+      <div class="field" style="flex:2"><label>Font</label>
+        <select id="smFont"></select>
+      </div>
+      <div class="field" style="flex:3"><label>Style</label>
+        <div class="btn-group" id="smStyle">
+          <button class="btn ghost sm" type="button" data-sm="bold" style="font-weight:800">B</button>
+          <button class="btn ghost sm" type="button" data-sm="italic" style="font-style:italic">I</button>
+          <button class="btn ghost sm" type="button" data-sm="uppercase">Aa</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="field"><label>Preview</label>
+      <div id="smPreview" style="min-height:40px;padding:8px 12px;background:#0a111c;border:1px solid var(--line);border-radius:8px;display:flex;align-items:center;color:#fff;font-size:22px;line-height:1.1;overflow:hidden;white-space:nowrap"></div>
+    </div>
+  </div>
+
+  <!-- ======================== MAP CARD · scorebug left ======================== -->
+  <div class="card"><span class="accent-edge"></span>
+    <div class="flex-between"><h2>Map card · scorebug left</h2>
+      <label class="inline" style="margin:0;text-transform:none">
+        <span class="switch"><input type="checkbox" id="mcVisible"><span class="track"></span></span>
+        &nbsp;Pin on stream</label>
+    </div>
+    <p class="section-sub" style="margin:4px 0 0">Slides down under the far-left of the scorebug with the current map's thumbnail &amp; name. <strong>Play</strong> = timed pop that slides back up; <strong>Pin</strong> = keep it down until turned off.</p>
+
+    <div class="row" style="margin-top:14px;align-items:flex-end">
+      <div class="field" style="flex:0 0 auto"><label>Auto-hide (sec)</label>
+        <input type="number" id="mcDuration" min="1" max="60" step="1" style="width:96px">
+      </div>
+      <div class="field" style="flex:1">
+        <button class="btn blue block" id="mcPlay">▶ Play map card</button>
+        <div class="hint">Current map: <span id="mcMapName" class="muted">— none —</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================== STARTING SOON ========================= -->
+  <div class="card"><span class="accent-edge"></span>
+    <div class="flex-between"><h2>Starting Soon scene</h2>
+      <label class="inline" style="margin:0;text-transform:none">
+        <span class="switch"><input type="checkbox" id="ssVisible"><span class="track"></span></span>
+        &nbsp;Show on stream</label>
+    </div>
+    <p class="section-sub" style="margin:4px 0 0">Full-screen scene: both team logos &amp; names, the scorebug event logo, and an optional countdown. Put it in its own OBS scene.</p>
+
+    <div class="row" style="margin-top:14px">
+      <div class="field" style="flex:1"><label>Headline</label>
+        <input type="text" id="ssTitle" placeholder="STARTING SOON"></div>
+      <div class="field" style="flex:1"><label>Subtitle (optional)</label>
+        <input type="text" id="ssSub" placeholder="e.g. Grand Final · Best of 5"></div>
+    </div>
+
+    <div class="divider"></div>
+    <div class="flex-between">
+      <h3 style="margin:0">Countdown timer</h3>
+      <label class="inline" style="margin:0;text-transform:none">
+        <span class="switch"><input type="checkbox" id="ssTimerShow"><span class="track"></span></span>
+        &nbsp;Show timer</label>
+    </div>
+
+    <div class="row" style="margin-top:10px;align-items:center">
+      <div class="field" style="flex:0 0 auto"><label>Set duration</label>
+        <div class="inline">
+          <input type="number" id="ssMin" min="0" max="180" step="1" placeholder="10" style="width:78px;text-align:center"> <span class="muted">min</span>
+          <input type="number" id="ssSec" min="0" max="59" step="1" placeholder="00" style="width:78px;text-align:center"> <span class="muted">sec</span>
+          <button class="btn ghost sm" id="ssSet" type="button">Set</button>
+        </div>
+      </div>
+      <div class="field" style="flex:1"><label>Remaining</label>
+        <div id="ssClock" style="font-family:var(--cond);font-size:40px;line-height:1;color:#fff">10:00</div>
+      </div>
+    </div>
+
+    <div class="btn-group">
+      <button class="btn good" id="ssStart">▶ Start</button>
+      <button class="btn" id="ssPause">⏸ Pause</button>
+      <button class="btn ghost" id="ssReset">↺ Reset</button>
+      <button class="btn ghost sm" data-ssadd="60" type="button">+1:00</button>
+      <button class="btn ghost sm" data-ssadd="30" type="button">+0:30</button>
+      <button class="btn ghost sm" data-ssadd="-30" type="button">−0:30</button>
+    </div>
+    <div class="hint">At zero the timer holds at 00:00. Logos &amp; names come from the teams picked in the Scorebug; the event logo is the Scorebug branding image.</div>
+  </div>
+
+  <!-- ====================== BACKGROUND MUSIC ========================= -->
+  <div class="card"><span class="accent-edge"></span>
+    <div class="flex-between"><h2>Background music</h2>
+      <label class="inline" style="margin:0;text-transform:none">
+        <span class="switch"><input type="checkbox" id="bgmEnabled"><span class="track"></span></span>
+        &nbsp;Enable</label>
+    </div>
+    <p class="section-sub" style="margin:4px 0 0">A single track that loops behind the <b>Starting Soon</b>, <b>Roster</b> and <b>Tournament Bracket</b> scenes — it plays whenever one of those is on stream, and is silent on live scenes.</p>
+
+    <div class="field" style="margin-top:14px">
+      <label>YouTube link or audio URL</label>
+      <div class="inline">
+        <input type="url" id="bgmUrl" placeholder="https://youtu.be/…  or  https://…/track.mp3">
+        <button class="btn ghost sm" id="bgmClear" type="button">Clear</button>
+      </div>
+      <div class="hint" id="bgmName">Paste a YouTube link (plays via YouTube), a direct .mp3/.ogg URL, or upload a file below.</div>
+    </div>
+
+    <div class="field">
+      <label>…or upload a file</label>
+      <input type="file" id="bgmFile" accept="audio/*" style="font-size:12px">
+    </div>
+
+    <div class="field">
+      <label>Volume · <span id="bgmVolVal" class="kbd"></span></label>
+      <input type="range" id="bgmVol" min="0" max="100" step="1" style="width:100%">
+    </div>
+    <div class="hint">In OBS the music autoplays. In a normal browser tab it starts after your first click on the overlay page (browser autoplay rule). YouTube playback needs the overlay machine to be online; some videos disallow embedding. Large uploads can exceed the database limit — use a URL if a file won't save.</div>
+  </div>
+
+  <div class="grid cols-2">
+    <!-- ============================ ROSTER ============================ -->
+    <div class="card"><span class="accent-edge"></span>
+      <div class="flex-between"><h2>Roster overlay</h2>
+        <label class="inline" style="margin:0;text-transform:none">
+          <span class="switch"><input type="checkbox" id="rosterVisible"><span class="track"></span></span>
+          &nbsp;Show on stream</label>
+      </div>
+      <div class="field" style="margin-top:14px"><label>Which team</label>
+        <div class="seg" id="rosterTeam"><button data-v="A">Team A</button><button data-v="B">Team B</button></div>
+      </div>
+      <div class="hint" id="rosterInfo">—</div>
+      <div class="btn-group" style="margin-top:12px">
+        <button class="btn good sm" data-show="roster">Show A</button>
+        <button class="btn good sm" data-show="rosterB">Show B</button>
+        <button class="btn bad sm" data-hide="roster">Hide</button>
+      </div>
+    </div>
+
+    <!-- ========================= LOWER THIRD ========================= -->
+    <div class="card"><span class="accent-edge"></span>
+      <div class="flex-between"><h2>Lower third</h2>
+        <label class="inline" style="margin:0;text-transform:none">
+          <span class="switch"><input type="checkbox" id="ltVisible"><span class="track"></span></span>
+          &nbsp;Show on stream</label>
+      </div>
+      <div class="field" style="margin-top:14px"><label>Mode</label>
+        <div class="seg" id="ltMode"><button data-v="casters">Casters</button><button data-v="title">Title</button></div>
+      </div>
+
+      <div id="ltCasters">
+        <div id="casterRows"></div>
+        <button class="btn ghost sm" id="addCaster" type="button">+ Add caster</button>
+      </div>
+
+      <div id="ltTitle" style="display:none">
+        <div class="field"><label>Title</label><input type="text" id="ltTitleText" placeholder="e.g. Caster Desk"></div>
+        <div class="field"><label>Subtitle</label><input type="text" id="ltSubText" placeholder="e.g. STGR Invitational"></div>
+      </div>
+
+      <div class="field" style="margin-top:8px">
+        <label>Auto-hide after Show · seconds (0 = off)</label>
+        <input type="number" id="ltAutoHide" min="0" max="600" step="1" placeholder="0" style="max-width:120px">
+      </div>
+      <div class="btn-group" style="margin-top:8px">
+        <button class="btn good sm" data-show="lt">Show</button>
+        <button class="btn bad sm" data-hide="lt">Hide</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================ MAP BAN ============================ -->
+  <div class="card"><span class="accent-edge"></span>
+    <div class="flex-between"><h2>Map ban / veto</h2>
+      <label class="inline" style="margin:0;text-transform:none">
+        <span class="switch"><input type="checkbox" id="mbVisible"><span class="track"></span></span>
+        &nbsp;Show on stream</label>
+    </div>
+    <div class="row" style="margin-top:14px">
+      <div class="field" style="flex:0 0 auto"><label>Format</label>
+        <div class="seg" id="mbFormat"><button data-v="BO1">BO1</button><button data-v="BO3">BO3</button><button data-v="BO5">BO5</button></div>
+      </div>
+      <div class="field" style="flex:0 0 auto;align-self:flex-end">
+        <button class="btn blue" id="mbGenerate">↻ Build standard veto</button>
+      </div>
+      <div class="field" style="flex:0 0 auto;align-self:flex-end">
+        <button class="btn ghost" id="mbClear">Clear all</button>
+      </div>
+    </div>
+    <div class="hint">Edit each step, then use ◂ / ▸ to move the highlight live as picks/bans happen.</div>
+    <div class="list" id="mbSteps" style="margin-top:12px"></div>
+    <div class="btn-group" style="margin-top:12px">
+      <button class="btn" id="mbPrev">◂ Previous step</button>
+      <button class="btn primary" id="mbNext">Next step ▸</button>
+      <button class="btn ghost sm" id="mbAddStep">+ Add step</button>
+    </div>
+  </div>
+
+  <!-- ========================= ROUND HISTORY ========================= -->
+  <div class="card"><span class="accent-edge"></span>
+    <div class="flex-between"><h2>Round history</h2>
+      <label class="inline" style="margin:0;text-transform:none">
+        <span class="switch"><input type="checkbox" id="rhVisible"><span class="track"></span></span>
+        &nbsp;Show on stream</label>
+    </div>
+    <p class="section-sub" style="margin:4px 0 0">Log each round's map &amp; bomb objective and who won. Also bumps the scorebug score.</p>
+
+    <div class="row" style="margin-top:14px">
+      <div class="field" style="flex:1"><label>Map</label>
+        <select id="rhMap"></select>
+      </div>
+      <div class="field" style="flex:1"><label id="rhSiteLabel">Bomb objective</label>
+        <select id="rhSite"></select>
+        <input type="text" id="rhSiteCustom" placeholder="custom bombsite" style="display:none;margin-top:6px">
+      </div>
+    </div>
+
+    <div class="btn-group" style="margin-top:4px">
+      <button class="btn good" id="rhWinA">Team A won ▸</button>
+      <button class="btn good" id="rhWinB">Team B won ▸</button>
+      <button class="btn ghost" id="rhUndo">↶ Undo last</button>
+      <button class="btn bad ghost" id="rhClear">Clear all</button>
+    </div>
+    <div class="hint">Clear all also resets the scorebug map score &amp; round pips.</div>
+
+    <div class="list" id="rhList" style="margin-top:12px"></div>
+  </div>
+
+  <!-- ====================== TOURNAMENT BRACKET ======================= -->
+  <div class="card"><span class="accent-edge"></span>
+    <div class="flex-between"><h2>Tournament bracket</h2>
+      <label class="inline" style="margin:0;text-transform:none">
+        <span class="switch"><input type="checkbox" id="brVisible"><span class="track"></span></span>
+        &nbsp;Show on stream</label>
+    </div>
+    <p class="section-sub" style="margin:4px 0 0">Group stage is <b>double elimination</b> (4 groups · 4 teams · top 2 advance); playoffs are <b>single elimination</b> (quarter → semi → final). Type team names straight into the slots, set scores, and click a name to mark the winner. Everything is manual.</p>
+
+    <div style="display:flex;gap:14px;flex-wrap:wrap;margin-top:14px">
+      <div class="field" style="flex:1 1 260px;max-width:420px"><label>Bracket title</label>
+        <input type="text" id="brTitle" placeholder="e.g. STGR Invitational 2026">
+      </div>
+      <div class="field" style="flex:1 1 260px;max-width:420px"><label>Animated background</label>
+        <div class="hint" style="margin:8px 0 0">Shared with the Starting Soon scene — change it in
+          <a href="settings.html" target="_blank" rel="noopener">Settings → Starting Soon background</a>.</div>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+    <h3 style="margin:0 0 4px">Group stage · double elimination</h3>
+    <div class="hint">Each group: two Upper Round 1 matches, an Upper Final (decides the 1st seed), a Lower Round 1, and a Lower Final (decides the 2nd seed).</div>
+    <div id="brGroups" style="margin-top:12px"></div>
+
+    <div class="divider"></div>
+    <h3 style="margin:0 0 4px">Playoffs · single elimination</h3>
+    <div class="hint">Eight qualifiers: four quarter-finals, two semi-finals, one final.</div>
+    <div id="brKnockout" style="margin-top:12px"></div>
+
+    <div class="btn-group" style="margin-top:14px">
+      <button class="btn bad ghost" id="brClear">Clear whole bracket</button>
+    </div>
+  </div>
+</div>
+
+<script src="js/control.js"></script>
+</body>
+</html>

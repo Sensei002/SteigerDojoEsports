@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import {
   FiUsers, FiCalendar, FiAward, FiMapPin, FiMonitor, FiEdit2,
-  FiTrash2, FiZap, FiClock, FiCheckCircle,
+  FiTrash2, FiZap, FiClock, FiCheckCircle, FiRadio,
 } from 'react-icons/fi';
 import {
   getTournament, deleteTournament, setStatus,
@@ -188,6 +188,9 @@ const TournamentDetail = () => {
                 {t.status === 'registration_open' && (
                   <Button variant="outline" onClick={async () => { await setStatus(t.id, 'registration_closed'); await load(); }}>Close Reg</Button>
                 )}
+                <a href={`${import.meta.env.BASE_URL}matchcontrol/control.html?room=${t.id}`} target="_blank" rel="noopener noreferrer">
+                  <Button variant="outline" leftIcon={<FiRadio />}>Match Control</Button>
+                </a>
                 <Link to={`/tournaments/${t.id}/edit`}><Button variant="outline" leftIcon={<FiEdit2 />}>Edit</Button></Link>
                 <Button variant="danger" leftIcon={<FiTrash2 />} onClick={handleDelete}>Delete</Button>
               </>

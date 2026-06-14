@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Settings · STGRMatchControl</title>
+<link rel="stylesheet" href="css/app.css">
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
+<script src="firebase-config.js"></script>
+<script src="js/auth.js"></script>
+<style>html.stgr-auth-pending body{visibility:hidden}</style>
+<script>document.documentElement.className+=' stgr-auth-pending';STGRAuth.requireLogin();</script>
+<script src="js/store.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/overlay-common.js"></script>
+</head>
+<body>
+<div class="wrap">
+  <h1>Settings</h1>
+  <p class="section-sub">Connection, theme and production room. Theme changes apply to all overlays live.</p>
+
+  <!-- THEME PRESETS -->
+  <div class="card" style="margin-bottom:18px"><span class="accent-edge"></span>
+    <h2>Theme presets</h2>
+    <p class="muted" style="margin-top:0">One click sets the colors <b>and</b> motion style for every overlay. Fine-tune below afterwards.</p>
+    <div class="preset-grid" id="presetGrid"></div>
+  </div>
+
+  <div class="grid cols-2">
+    <!-- THEME -->
+    <div class="card"><span class="accent-edge"></span>
+      <h2>Overlay theme</h2>
+      <p class="muted" style="margin-top:0">Colors used across every overlay. Saved to the live state.</p>
+      <div class="row">
+        <div class="field"><label>Accent (ATK / brand)</label><input type="color" id="accent"></div>
+        <div class="field"><label>Accent 2 (DEF)</label><input type="color" id="accent2"></div>
+      </div>
+      <div class="row">
+        <div class="field"><label>Team A color</label><input type="color" id="teamAColor"></div>
+        <div class="field"><label>Team B color</label><input type="color" id="teamBColor"></div>
+        <div class="field"><label>Overlay base</label><input type="color" id="bg"></div>
+      </div>
+      <div class="row">
+        <div class="field"><label>Scorebug dividers</label><input type="color" id="divider">
+          <div class="hint">Lines between team · score · logo segments on the scorebug.</div></div>
+      </div>
+
+      <div class="divider"></div>
+      <h3 style="margin:0 0 4px">Scorebug team names</h3>
+      <p class="muted" style="margin:0 0 10px">Text color of each team's name on the scorebug, by the side it's currently playing (colors swap when sides switch). The roster player-card accent edge follows these too.</p>
+      <div class="row">
+        <div class="field"><label>ATK side name</label><input type="color" id="nameAtk"></div>
+        <div class="field"><label>DEF side name</label><input type="color" id="nameDef"></div>
+      </div>
+
+      <div class="field">
+        <label>Panel transparency · <span id="opacityVal" class="kbd"></span></label>
+        <input type="range" id="panelOpacity" min="0" max="100" step="1" style="width:100%">
+        <div class="hint">Lower = more see-through panels · higher = solid.</div>
+      </div>
+
+      <div class="divider"></div>
+      <div class="flex-between">
+        <h3 style="margin:0">Gradient panel fill</h3>
+        <label class="inline" style="margin:0;text-transform:none">
+          <span class="switch"><input type="checkbox" id="gradient"><span class="track"></span></span>
+          &nbsp;Use gradient</label>
+      </div>
+      <p class="muted" style="margin:6px 0 0">When on, panels use a gradient between these two colors (transparency still applies).</p>
+      <div class="row" style="margin-top:10px">
+        <div class="field"><label>Gradient from</label><input type="color" id="gradFrom"></div>
+        <div class="field"><label>Gradient to</label><input type="color" id="gradTo"></div>
+        <div class="field"><label>Angle · <span id="angleVal" class="kbd"></span></label>
+          <input type="range" id="gradAngle" min="0" max="360" step="5" style="width:100%"></div>
+      </div>
+
+      <div class="divider"></div>
+      <div class="row">
+        <div class="field">
+          <label>Scorebug style</label>
+          <select id="skin"></select>
+          <div class="hint">Default STGR bar, or the R6 broadcast team-tinted bar.</div>
+        </div>
+        <div class="field">
+          <label>Animation style</label>
+          <select id="anim"></select>
+          <div class="hint">How every overlay enters &amp; exits on stream.</div>
+        </div>
+      </div>
+
+      <div class="btn-group">
+        <button class="btn primary" id="saveTheme">Apply theme</button>
+        <button class="btn ghost" id="resetTheme">Reset defaults</button>
+      </div>
+    </div>
+
+    <!-- ROOM -->
+    <div class="card"><span class="accent-edge"></span>
+      <h2>Production room</h2>
+      <p class="muted" style="margin-top:0">A room keeps a separate set of data &amp; overlays. Use different rooms to run multiple matches. The room is added to every overlay URL automatically.</p>
+      <div class="field"><label>Current room</label>
+        <div class="inline"><input type="text" id="room" placeholder="main">
+          <button class="btn blue" id="switchRoom">Switch</button></div>
+        <div class="hint">Currently: <span class="kbd" id="curRoom"></span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- STARTING SOON BACKGROUND -->
+  <div class="card" style="margin-top:18px"><span class="accent-edge"></span>
+    <h2>Starting Soon background</h2>
+    <p class="muted" style="margin-top:0">An animated, broadcast-style backdrop for the <b>Starting Soon</b> scene. Click one — it applies to the overlay live. All presets stay dark so your title &amp; countdown stay readable.</p>
+    <div class="preset-grid" id="ssBgGrid"></div>
+  </div>
+
+  <!-- FIREBASE -->
+  <div class="card" style="margin-top:18px"><span class="accent-edge"></span>
+    <h2>Firebase connection</h2>
+    <div id="fbStatus" class="banner" style="margin-top:0"></div>
+    <p class="muted">The recommended way is to edit <span class="kbd">firebase-config.js</span> in your repo (works in OBS on any browser). You can also paste config here to test quickly — it’s saved to this browser only.</p>
+    <div class="field"><label>Paste your firebaseConfig object (JSON or JS)</label>
+      <textarea id="fbInput" rows="9" placeholder='{
+  "apiKey": "…",
+  "authDomain": "your-project.firebaseapp.com",
+  "databaseURL": "https://your-project-default-rtdb.firebaseio.com",
+  "projectId": "your-project",
+  "appId": "…"
+}'></textarea>
+    </div>
+    <div class="btn-group">
+      <button class="btn primary" id="saveFb">Save &amp; reload</button>
+      <button class="btn bad" id="clearFb">Clear override</button>
+    </div>
+    <div class="hint">Reloads the page to apply. databaseURL and apiKey are required.</div>
+  </div>
+
+  <!-- PLAYER STATS (Ubisoft API) -->
+  <div class="card" style="margin-top:18px"><span class="accent-edge"></span>
+    <h2>Player stats (Ubisoft)</h2>
+    <p class="muted" style="margin-top:0">Shows each player's <b>K/D · Headshot % · Win %</b> on the Roster overlay, pulled live from Ubisoft's R6 API. Player IGNs come from the <span class="kbd">Teams</span> page.</p>
+    <div class="banner warn" style="margin-top:0">
+      Browsers can't call Ubisoft directly, so this needs a tiny free proxy. Deploy <span class="kbd">stats-proxy/worker.js</span> to Cloudflare Workers and add a <b>burner Ubisoft login</b> as Worker secrets (full steps in the README), then paste the worker URL below. <b>KOST</b> isn't exposed by Ubisoft and will show <span class="kbd">—</span>.
+    </div>
+    <div class="field"><label>Stats proxy URL (your Cloudflare Worker)</label>
+      <div class="inline">
+        <input type="text" id="statsProxy" placeholder="https://stgr-stats.YOURNAME.workers.dev">
+        <button class="btn blue" id="testStats">Test</button>
+      </div>
+      <div class="hint" id="statsTestOut">Paste the worker URL, then Test with a known IGN.</div>
+    </div>
+    <label class="inline" style="margin:6px 0 0;text-transform:none">
+      <span class="switch"><input type="checkbox" id="statsEnabled"><span class="track"></span></span>
+      &nbsp;Show live stats on the Roster overlay</label>
+    <div class="btn-group">
+      <button class="btn primary" id="saveStats">Save stats settings</button>
+    </div>
+  </div>
+</div>
+
+<script>
+UI.mount('settings');
+const $ = function (id) { return document.getElementById(id); };
+
+/* ---- theme ---- */
+const DEF_THEME = Store.DEFAULT_STATE.theme;
+let theme = Object.assign({}, DEF_THEME);
+
+// animation-style dropdown
+$('anim').innerHTML = OV.ANIMS.map(function (a) {
+  return '<option value="' + a.key + '">' + a.label + '</option>';
+}).join('');
+
+// scorebug-skin dropdown
+$('skin').innerHTML = OV.SKINS.map(function (s) {
+  return '<option value="' + s.key + '">' + s.label + '</option>';
+}).join('');
+
+// preset cards (colors + motion + animated backdrop in one click)
+$('presetGrid').innerHTML = OV.THEMES.map(function (p) {
+  const c = p.colors;
+  const sw = [c.accent, c.accent2, c.teamAColor, c.teamBColor].map(function (col) {
+    return '<i class="sw" style="background:' + col + '"></i>';
+  }).join('');
+  const motion = (OV.ANIMS.filter(function (a) { return a.key === p.anim; })[0] || {}).label || p.anim;
+  const bg = (OV.SS_BACKGROUNDS.filter(function (b) { return b.key === p.ssBg; })[0] || {}).label || '';
+  const meta = motion.replace(/\s*\(.*\)/, '') + (bg ? ' · ' + bg : '');
+  return '<button class="preset" data-key="' + p.key + '" type="button">' +
+    '<span class="sw-row" style="background:' + c.bg + '">' + sw + '</span>' +
+    '<span class="pl">' + p.label + '</span>' +
+    '<span class="pm">' + meta + '</span></button>';
+}).join('');
+Array.prototype.forEach.call($('presetGrid').querySelectorAll('.preset'), function (btn) {
+  btn.onclick = function () {
+    const key = btn.getAttribute('data-key');
+    Store.set('theme', OV.presetTheme(key));
+    const bg = OV.presetBg(key);
+    if (bg) Store.set('startingSoon/bg', bg);   // also drives the shared bracket backdrop
+    UI.toast('Preset applied to overlays');
+  };
+});
+function highlightPreset(key) {
+  Array.prototype.forEach.call($('presetGrid').querySelectorAll('.preset'), function (btn) {
+    btn.classList.toggle('active', btn.getAttribute('data-key') === key);
+  });
+}
+
+Store.subscribe('theme', function (t) {
+  theme = Object.assign({}, DEF_THEME, t || {});
+  ['accent','accent2','teamAColor','teamBColor','bg','divider','nameAtk','nameDef'].forEach(function (k) {
+    if (document.activeElement !== $(k)) $(k).value = theme[k];
+  });
+  const op = (theme.panelOpacity == null ? 88 : theme.panelOpacity);
+  const ang = (theme.gradAngle == null ? 105 : theme.gradAngle);
+  if (document.activeElement !== $('panelOpacity')) $('panelOpacity').value = op;
+  $('opacityVal').textContent = op + '%';
+  $('gradient').checked = !!theme.gradient;
+  if (document.activeElement !== $('gradFrom')) $('gradFrom').value = theme.gradFrom || '#0a0e14';
+  if (document.activeElement !== $('gradTo'))   $('gradTo').value   = theme.gradTo   || '#1a2740';
+  if (document.activeElement !== $('gradAngle')) $('gradAngle').value = ang;
+  $('angleVal').textContent = ang + '°';
+  if (document.activeElement !== $('anim')) $('anim').value = theme.anim || 'siege';
+  if (document.activeElement !== $('skin')) $('skin').value = theme.skin || 'default';
+  highlightPreset(theme.preset || 'siege');
+});
+// live value labels while dragging (the value is pushed to overlays on Apply)
+$('panelOpacity').oninput = function () { $('opacityVal').textContent = this.value + '%'; };
+$('gradAngle').oninput = function () { $('angleVal').textContent = this.value + '°'; };
+
+$('saveTheme').onclick = function () {
+  Store.set('theme', {
+    accent: $('accent').value, accent2: $('accent2').value,
+    teamAColor: $('teamAColor').value, teamBColor: $('teamBColor').value, bg: $('bg').value,
+    divider: $('divider').value,
+    nameAtk: $('nameAtk').value, nameDef: $('nameDef').value,
+    panelOpacity: +$('panelOpacity').value,
+    gradient: $('gradient').checked,
+    gradFrom: $('gradFrom').value, gradTo: $('gradTo').value, gradAngle: +$('gradAngle').value,
+    anim: $('anim').value,
+    skin: $('skin').value,
+    preset: 'custom'
+  });
+  UI.toast('Theme applied to overlays');
+};
+$('resetTheme').onclick = function () { Store.set('theme', Object.assign({}, DEF_THEME)); UI.toast('Theme reset'); };
+
+/* ---- Starting Soon background presets ---- */
+$('ssBgGrid').innerHTML = OV.SS_BACKGROUNDS.map(function (b) {
+  return '<button class="preset ssbg" data-key="' + b.key + '" type="button">' +
+    '<span class="ssbg-prev" style="background:' + b.swatch + '"></span>' +
+    '<span class="pl">' + b.label + '</span>' +
+    '<span class="ssbg-desc">' + b.desc + '</span></button>';
+}).join('');
+Array.prototype.forEach.call($('ssBgGrid').querySelectorAll('.preset'), function (btn) {
+  btn.onclick = function () {
+    Store.set('startingSoon/bg', btn.getAttribute('data-key'));   // sub-path: won't touch title/timer
+    UI.toast('Starting Soon background applied');
+  };
+});
+Store.subscribe('startingSoon', function (ssv) {
+  const key = (ssv && ssv.bg) || 'carbon';
+  Array.prototype.forEach.call($('ssBgGrid').querySelectorAll('.preset'), function (btn) {
+    btn.classList.toggle('active', btn.getAttribute('data-key') === key);
+  });
+});
+
+/* ---- room ---- */
+$('curRoom').textContent = Store.room;
+$('room').value = Store.room;
+$('switchRoom').onclick = function () {
+  const r = ($('room').value.trim() || 'main');
+  Store.setRoom(r);
+  const u = new URL(location.href); u.searchParams.set('room', r); location.href = u.href;
+};
+
+/* ---- firebase ---- */
+(function () {
+  const el = $('fbStatus');
+  if (Store.usingFirebase) {
+    el.className = 'banner info';
+    el.innerHTML = '✅ Connected via Firebase (remote control enabled). Room: <span class="kbd">' + Store.room + '</span>';
+  } else {
+    el.className = 'banner warn';
+    el.innerHTML = '🧪 Running in <b>Local mode</b>. Add a Firebase config below (or in <span class="kbd">firebase-config.js</span>) for remote control.';
+  }
+})();
+
+$('saveFb').onclick = function () {
+  let raw = $('fbInput').value.trim();
+  if (!raw) { UI.toast('Paste a config first'); return; }
+  // tolerate "const firebaseConfig = { … };" and trailing semicolons
+  raw = raw.replace(/^[^\{]*\{/, '{').replace(/\};?\s*$/, '}');
+  let cfg;
+  try { cfg = JSON.parse(raw); }
+  catch (e) {
+    try { cfg = (new Function('return (' + raw + ')'))(); }   // JS-object fallback
+    catch (e2) { UI.toast('Could not parse config'); return; }
+  }
+  if (!cfg || !cfg.apiKey || !cfg.databaseURL) { UI.toast('Need apiKey and databaseURL'); return; }
+  localStorage.setItem('stgr_fb_config', JSON.stringify(cfg));
+  UI.toast('Saved — reloading…');
+  setTimeout(function () { location.reload(); }, 700);
+};
+$('clearFb').onclick = function () {
+  localStorage.removeItem('stgr_fb_config');
+  UI.toast('Override cleared — reloading…');
+  setTimeout(function () { location.reload(); }, 700);
+};
+
+/* ---- player stats (tracker.network proxy) ---- */
+Store.subscribe('integrations', function (it) {
+  it = it || {};
+  if (document.activeElement !== $('statsProxy')) $('statsProxy').value = it.statsProxy || '';
+  $('statsEnabled').checked = it.statsEnabled !== false;   // default on
+});
+
+$('saveStats').onclick = function () {
+  Store.set('integrations', {
+    statsProxy: $('statsProxy').value.trim().replace(/\/+$/, ''),  // strip trailing slash
+    statsEnabled: $('statsEnabled').checked
+  });
+  UI.toast('Stats settings saved');
+};
+
+$('testStats').onclick = function () {
+  const base = $('statsProxy').value.trim().replace(/\/+$/, '');
+  const out = $('statsTestOut');
+  if (!base) { out.textContent = 'Enter the worker URL first.'; return; }
+  const ign = prompt('Test with which IGN? (a real R6 player name)', 'Pengu');
+  if (!ign) return;
+  out.textContent = 'Testing ' + ign + '…';
+  const u = base + '/?platform=ubi&name=' + encodeURIComponent(ign);
+  fetch(u).then(function (r) { return r.json(); }).then(function (d) {
+    if (d && d.ok && d.stats) {
+      const s = d.stats;
+      out.innerHTML = '✅ ' + (d.name || ign) + ' — K/D ' + (s.kd || '—') +
+        ' · HS ' + (s.hs || '—') + ' · Win ' + (s.winRate || '—') +
+        ' · KOST ' + (s.kost || '—');
+    } else if (d && d.error === 'no_creds') {
+      out.textContent = '❌ Worker has no Ubisoft login. Add UBI_EMAIL and UBI_PASSWORD as Worker secrets, then redeploy (see README).';
+    } else if (d && d.error === 'auth_failed') {
+      out.textContent = '❌ Ubisoft login failed. Check the burner account email/password secrets and that it has NO 2-factor auth.';
+    } else if (d && d.error === 'not_found') {
+      out.textContent = '❌ No Ubisoft profile for "' + ign + '" on PC. Check the exact IGN and platform.';
+    } else {
+      out.textContent = '❌ No stats returned (' + ((d && d.error) || 'unknown') + ').';
+    }
+  }).catch(function (e) {
+    out.textContent = '❌ Could not reach the worker URL. Check it is deployed and correct.';
+  });
+};
+</script>
+</body>
+</html>

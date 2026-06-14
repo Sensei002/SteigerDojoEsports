@@ -12,6 +12,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '@/firebase/config';
 import { updateTournament } from './tournamentService';
+import { syncTeamToMatchControl, removeTeamFromMatchControl } from './matchControlSync';
 import type { Registration, Tournament, Team, RegistrationStatus } from '@/types';
 import { toDate } from '@/utils/helpers';
 
@@ -89,6 +90,20 @@ export const registerTeam = async (
   await updateTournament(data.tournamentId, {
     registeredTeams: increment(1) as unknown as number,
   });
+  // Mirror the team into Match Control (room = tournamentId). Best-effort: never
+  // let a Realtime Database hiccup fail an otherwise-successful registration.
+  try {
+    await syncTeamToMatchControl(data.tournamentId, {
+      teamId: data.teamId,
+      teamName: data.teamName,
+      teamTag: data.teamTag,
+      teamLogoUrl: data.teamLogoUrl,
+      roster: data.roster,
+    });
+  } catch (e) {
+    // eslint-disable-next-line no-console
+    console.warn('[matchControlSync] could not mirror team to Match Control:', e);
+  }
   return ref.id;
 };
 
@@ -103,6 +118,13 @@ export const withdrawRegistration = async (reg: Registration): Promise<void> => 
   await updateTournament(reg.tournamentId, {
     registeredTeams: increment(-1) as unknown as number,
   });
+  // Pull the team back out of Match Control (best-effort).
+  try {
+    await removeTeamFromMatchControl(reg.tournamentId, reg.teamId);
+  } catch (e) {
+    // eslint-disable-next-line no-console
+    console.warn('[matchControlSync] could not remove team from Match Control:', e);
+  }
 };
 
 export const removeRegistration = (id: string) =>

@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Tournament Bracket · STGR</title>
+<link rel="stylesheet" href="../css/overlay.css">
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
+<script src="../firebase-config.js"></script>
+<script src="../js/store.js"></script>
+<script src="../js/overlay-common.js"></script>
+</head>
+<body>
+<div class="stage">
+  <div class="bracket" id="bracket">
+    <div class="soon-bg" aria-hidden="true">
+      <span class="ssb ssb-1"></span><span class="ssb ssb-2"></span><span class="ssb ssb-3"></span>
+    </div>
+    <div class="br-title" id="title">TOURNAMENT BRACKET</div>
+
+    <div class="br-stage-label">Group Stage · Double Elimination</div>
+    <div class="br-groups" id="groups"></div>
+
+    <div class="br-stage-label">Playoffs · Single Elimination</div>
+    <div class="br-playoffs"><div class="ko" id="ko"></div></div>
+  </div>
+</div>
+<audio id="bgm" loop preload="auto"></audio>
+
+<script>
+const $ = function (id) { return document.getElementById(id); };
+let lastKey = '';
+
+// Group stage: five double-elimination matches per group (see store.js).
+const GROUP_MATCHES = [
+  { key: 'ub1', label: 'Upper · R1' },
+  { key: 'ub2', label: 'Upper · R1' },
+  { key: 'ubf', label: 'Upper Final' },
+  { key: 'lb1', label: 'Lower · R1' },
+  { key: 'lbf', label: 'Lower Final' }
+];
+
+Store.subscribe('', function (val) {
+  const st = Store.withDefaults(val);
+  OV.applyTheme(st.theme);
+  const br = st.bracket || {};
+
+  // animated backdrop preset — shared with Starting Soon (set in Settings), so
+  // both scenes always match. Falls back to 'carbon' if unset/unknown.
+  const ssBg = (st.startingSoon || {}).bg;
+  const bgOk = OV.SS_BACKGROUNDS.some(function (b) { return b.key === ssBg; });
+  document.documentElement.setAttribute('data-ss-bg', bgOk ? ssBg : 'carbon');
+
+  OV.bgm(st.audio, !!br.visible);          // looping background music while shown
+
+  $('bracket').classList.toggle('show', !!br.visible);
+  if (!br.visible) return;
+
+  $('title').textContent = br.title || 'TOURNAMENT BRACKET';
+
+  // Only rebuild the tree when the data actually changes, so the entrance
+  // animation isn't retriggered on unrelated room updates.
+  const key = JSON.stringify({ g: br.groups, k: br.knockout, t: br.title });
+  if (key === lastKey) return;
+  lastKey = key;
+
+  const groups = br.groups || {};
+  $('groups').innerHTML = ['A', 'B', 'C', 'D'].map(function (g, gi) {
+    const grp = groups[g] || {};
+    const matches = GROUP_MATCHES.map(function (mm) {
+      return matchCard(grp[mm.key], mm.label);
+    }).join('');
+    return '<div class="br-group" style="--gi:' + gi + '">' +
+      '<div class="br-ghead">Group ' + g + '</div>' + matches + '</div>';
+  }).join('');
+
+  const ko = br.knockout || {};
+  $('ko').innerHTML =
+    '<div class="ko-round">' +
+      '<div class="ko-pair">' + koCell(ko.qf1, 'QF 1') + koCell(ko.qf2, 'QF 2') + '</div>' +
+      '<div class="ko-pair">' + koCell(ko.qf3, 'QF 3') + koCell(ko.qf4, 'QF 4') + '</div>' +
+    '</div>' +
+    '<div class="ko-round">' +
+      '<div class="ko-pair sf">' + koCell(ko.sf1, 'SF 1') + koCell(ko.sf2, 'SF 2') + '</div>' +
+    '</div>' +
+    '<div class="ko-round ko-final">' +
+      koCell(ko.final, 'Final') +
+    '</div>';
+});
+
+function matchCard(m, label) {
+  m = m || {};
+  return '<div class="brm">' +
+    '<div class="brm-lbl">' + OV.esc(label) + '</div>' +
+    matchRow('1', m.p1, m.s1, m.w) +
+    matchRow('2', m.p2, m.s2, m.w) +
+    '</div>';
+}
+function koCell(m, label) {
+  m = m || {};
+  return '<div class="ko-m"><div class="brm">' +
+    '<div class="brm-lbl">' + OV.esc(label) + '</div>' +
+    matchRow('1', m.p1, m.s1, m.w) +
+    matchRow('2', m.p2, m.s2, m.w) +
+    '</div></div>';
+}
+function matchRow(side, p, s, w) {
+  const win = w === side;
+  const lose = w && w !== side;
+  const named = p != null && String(p).trim() !== '';
+  return '<div class="brm-row ' + (side === '1' ? 'a' : 'b') +
+      (win ? ' win' : '') + (lose ? ' lose' : '') + '">' +
+    '<span class="brm-name' + (named ? '' : ' tbd') + '">' +
+      (named ? OV.esc(p) : 'TBD') + '</span>' +
+    '<span class="brm-score">' + OV.esc(s == null ? '' : s) + '</span>' +
+    '</div>';
+}
+</script>
+</body>
+</html>

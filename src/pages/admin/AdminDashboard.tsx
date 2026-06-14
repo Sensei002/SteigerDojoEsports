@@ -2,8 +2,9 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   FiUsers, FiAward, FiActivity, FiGrid, FiFileText, FiStar,
-  FiTrash2, FiPlus, FiSend, FiShield,
+  FiTrash2, FiPlus, FiSend, FiShield, FiRadio, FiDownloadCloud,
 } from 'react-icons/fi';
+import { importMatchControlTeams } from '@/services/matchControlImport';
 import { listUsers, setUserRole } from '@/services/userService';
 import { listTeams, deleteTeam } from '@/services/teamService';
 import { listTournaments, deleteTournament } from '@/services/tournamentService';
@@ -42,6 +43,7 @@ const AdminDashboard = () => {
   const [newsOpen, setNewsOpen] = useState(false);
   const [sponsorOpen, setSponsorOpen] = useState(false);
   const [announceOpen, setAnnounceOpen] = useState(false);
+  const [importing, setImporting] = useState(false);
 
   const load = async () => {
     const [u, tm, tn, n, s] = await Promise.all([
@@ -80,6 +82,25 @@ const AdminDashboard = () => {
     if (!confirm('Delete this team?')) return;
     await deleteTeam(id); success('Team deleted.'); await load();
   };
+
+  const importTeams = async () => {
+    if (!user) return;
+    if (!confirm('Import teams from STGR Match Control into the site? Already-imported teams are skipped.')) return;
+    setImporting(true);
+    try {
+      const r = await importMatchControlTeams(user.uid);
+      if (r.imported === 0) {
+        success(`Already up to date — ${r.skipped} team(s) already imported.`);
+      } else {
+        success(`Imported ${r.imported} team(s)${r.skipped ? `, ${r.skipped} already present` : ''}.`);
+      }
+      await load();
+    } catch (e) {
+      error((e as Error).message);
+    } finally {
+      setImporting(false);
+    }
+  };
   const removeTournament = async (id: string) => {
     if (!confirm('Delete this tournament?')) return;
     await deleteTournament(id); success('Tournament deleted.'); await load();
@@ -95,7 +116,14 @@ const AdminDashboard = () => {
   return (
     <div className="container-app animate-fade-in py-10">
       <SectionHeader title="Admin Dashboard" subtitle={`Signed in as ${user?.username}`} icon={<FiGrid />}
-        action={<Button variant="secondary" leftIcon={<FiSend />} onClick={() => setAnnounceOpen(true)}>Announce</Button>} />
+        action={
+          <div className="flex gap-2">
+            <a href={`${import.meta.env.BASE_URL}matchcontrol/index.html`} target="_blank" rel="noopener noreferrer">
+              <Button variant="primary" leftIcon={<FiRadio />}>Match Control</Button>
+            </a>
+            <Button variant="secondary" leftIcon={<FiSend />} onClick={() => setAnnounceOpen(true)}>Announce</Button>
+          </div>
+        } />
 
       {/* Tabs */}
       <div className="mb-6 flex gap-2 overflow-x-auto">
@@ -144,6 +172,13 @@ const AdminDashboard = () => {
       )}
 
       {tab === 'teams' && (
+        <>
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <p className="text-sm text-brand-gray">{teams.length} team{teams.length === 1 ? '' : 's'}</p>
+          <Button size="sm" variant="secondary" leftIcon={<FiDownloadCloud />} loading={importing} onClick={importTeams}>
+            Import from Match Control
+          </Button>
+        </div>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {teams.map((t) => (
             <div key={t.id} className="flex items-center gap-3 rounded-xl border border-brand-border bg-brand-panel p-3">
@@ -153,6 +188,7 @@ const AdminDashboard = () => {
             </div>
           ))}
         </div>
+        </>
       )}
 
       {tab === 'tournaments' && (

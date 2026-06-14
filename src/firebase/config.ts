@@ -1,6 +1,7 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
+import { getDatabase } from 'firebase/database';
 
 // Firebase configuration is loaded from environment variables (see .env.example).
 // Never hard-code secrets here — Vite injects VITE_* vars at build time.
@@ -12,6 +13,8 @@ const firebaseConfig = {
   messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
   appId: import.meta.env.VITE_FIREBASE_APP_ID,
   measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID,
+  // Realtime Database — used to mirror registered teams into Match Control.
+  databaseURL: import.meta.env.VITE_FIREBASE_DATABASE_URL,
 };
 
 /**
@@ -59,6 +62,8 @@ if (!isFirebaseConfigured) {
 export const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getFirestore(app);
+// Realtime Database client for the Match Control sync (see services/matchControlSync.ts).
+export const rtdb = getDatabase(app);
 export const googleProvider = new GoogleAuthProvider();
 
 export default app;

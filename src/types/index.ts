@@ -117,6 +117,9 @@ export interface Team {
   members: TeamMember[];
   bio?: string;
   stats?: TeamStats;
+  /** Set when the team was imported from an external source (e.g. Match Control),
+   *  used to make re-imports idempotent. Format: `matchcontrol:<roomTeamId>`. */
+  sourceRef?: string;
   createdAt?: Timestamp;
   updatedAt?: Timestamp;
 }

@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Lower Third · STGR</title>
+<link rel="stylesheet" href="../css/overlay.css">
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
+<script src="../firebase-config.js"></script>
+<script src="../js/store.js"></script>
+<script src="../js/overlay-common.js"></script>
+</head>
+<body>
+<div class="stage">
+  <div class="lt-wrap" id="wrap"></div>
+</div>
+
+<script>
+const $ = function (id) { return document.getElementById(id); };
+let lastSig = '';
+let prevShow = false;
+let bars = [];
+
+Store.subscribe('', function (val) {
+  const st = Store.withDefaults(val);
+  OV.applyTheme(st.theme);
+  const l = st.lowerThird;
+
+  const hasContent = l.mode === 'title'
+    ? !!(l.title || l.subtitle)
+    : (l.casters || []).some(function (c) { return c && (c.name || c.handle); });
+  const wantShow = !!(l.visible && hasContent);
+
+  // Only rebuild the bars when their CONTENT changes — otherwise an unrelated
+  // state update (e.g. a score change) would replay the entrance.
+  const sig = JSON.stringify({ m: l.mode, t: l.title, s: l.subtitle, c: l.casters });
+  let rebuilt = false;
+  if (sig !== lastSig) { lastSig = sig; rebuilt = true; buildBars(l); }
+
+  if (wantShow) {
+    if (!prevShow || rebuilt) staggerShow();
+    else bars.forEach(function (b) { b.classList.add('show'); });
+  } else {
+    bars.forEach(function (b) { b.classList.remove('show'); });
+  }
+  prevShow = wantShow;
+});
+
+// One bar per person in caster mode; a single bar in title mode.
+function buildBars(l) {
+  const wrap = $('wrap');
+  if (l.mode === 'title') {
+    wrap.innerHTML = bar('STGR',
+      '<div class="lt-body lt-title"><div class="nm">' + OV.esc(l.title || '') + '</div>' +
+      (l.subtitle ? '<div class="hd">' + OV.esc(l.subtitle) + '</div>' : '') + '</div>');
+  } else {
+    const casters = (l.casters || []).filter(function (c) { return c && (c.name || c.handle); });
+    wrap.innerHTML = casters.map(function (c) {
+      return bar((c.role || 'Caster').toUpperCase(),
+        '<div class="lt-body"><div class="lt-caster"><div class="nm">' + OV.esc(c.name || '') + '</div>' +
+        (c.handle ? '<div class="hd">' + OV.esc(c.handle) + '</div>' : '') + '</div></div>');
+    }).join('');
+  }
+  bars = Array.prototype.slice.call(wrap.querySelectorAll('.lt'));
+}
+
+function bar(tag, bodyHtml) {
+  return '<div class="lt">' +
+    '<div class="lt-tag">' + OV.esc(tag) + '</div>' +
+    '<div class="lt-accent"></div>' + bodyHtml + '</div>';
+}
+
+// Reveal each bar in sequence (bottom-up feel) with a short stagger.
+function staggerShow() {
+  bars.forEach(function (b, i) {
+    b.classList.remove('show');
+    void b.offsetWidth;                       // restart the transition
+    setTimeout(function () { b.classList.add('show'); }, i * 140);
+  });
+}
+</script>
+</body>
+</html>

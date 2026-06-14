@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>STGR Match Control · Esports Broadcast Suite</title>
+<link rel="stylesheet" href="css/app.css">
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
+<script src="firebase-config.js"></script>
+<script src="js/auth.js"></script>
+<style>html.stgr-auth-pending body{visibility:hidden}</style>
+<script>document.documentElement.className+=' stgr-auth-pending';STGRAuth.requireLogin();</script>
+<script src="js/store.js"></script>
+<script src="js/ui.js"></script>
+</head>
+<body>
+<div class="wrap">
+  <div class="hero">
+    <img class="hero-logo" src="assets/logo.png" alt="STGR Dojo">
+    <div class="hero-body">
+      <span class="eyebrow">STGR Dojo · Esports Broadcast</span>
+      <h1>STGR <span class="accentword">Match</span> Control</h1>
+      <p>Run your entire broadcast — scorebug, rosters, lower thirds and map ban — live from one tactical command panel. Built for Rainbow Six Siege &amp; VALORANT, hosted free on GitHub Pages.</p>
+      <div class="cta-row">
+        <a class="btn primary" href="control.html">🎛️ Open Match Control</a>
+        <a class="btn ghost" href="sources.html">🎥 OBS Browser Sources</a>
+      </div>
+    </div>
+  </div>
+
+  <div id="modeBanner"></div>
+
+  <div class="tiles">
+    <a class="tile" href="teams.html"><div class="ico">🛡️</div><div class="t">Teams</div>
+      <div class="d">Create teams, upload logos, set colors and build rosters.</div></a>
+    <a class="tile" href="control.html"><div class="ico">🎛️</div><div class="t">Match Control</div>
+      <div class="d">Pick teams, drive the score, sides, map, casters and overlays live.</div></a>
+    <a class="tile" href="sources.html"><div class="ico">🎥</div><div class="t">Browser Sources</div>
+      <div class="d">Copy the overlay URLs to drop straight into OBS.</div></a>
+    <a class="tile" href="settings.html"><div class="ico">⚙️</div><div class="t">Settings</div>
+      <div class="d">Firebase connection, theme colors and production room.</div></a>
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="grid cols-2">
+    <div class="card"><span class="accent-edge"></span>
+      <h2>Quick start</h2>
+      <ol class="muted" style="padding-left:18px; line-height:1.9">
+        <li>Open <a href="teams.html">Teams</a> and add at least two teams with logos &amp; rosters.</li>
+        <li>Go to <a href="control.html">Match Control</a>, select Team A &amp; Team B.</li>
+        <li>In OBS add the overlay URLs from <a href="sources.html">Browser Sources</a> (1920×1080).</li>
+        <li>Toggle overlays on/off and drive the match — OBS updates in real time.</li>
+      </ol>
+    </div>
+    <div class="card"><span class="accent-edge"></span>
+      <h2>Overlays included</h2>
+      <ul class="muted" style="padding-left:18px; line-height:1.9">
+        <li><b>Scorebug</b> — top-center match bar (teams, score, side, map, BO).</li>
+        <li><b>Roster</b> — full-screen team line-up with logos &amp; roles.</li>
+        <li><b>Lower third</b> — caster names/handles, shown in real time.</li>
+        <li><b>Map ban / veto</b> — pick &amp; ban sequence like mapban.gg.</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<script>
+  UI.mount('home');
+  (function () {
+    const b = document.getElementById('modeBanner');
+    if (Store.usingFirebase) {
+      b.className = 'banner info';
+      b.innerHTML = '🔗 <b>Remote mode (Firebase).</b> Control overlays from any device — phone, laptop, anywhere. Room: <span class="kbd">' + Store.room + '</span>';
+    } else {
+      b.className = 'banner warn';
+      b.innerHTML = '🧪 <b>Local mode.</b> Works only within one browser (great for OBS docks + sources). To control from any device, add your Firebase config in <a href="settings.html">Settings</a> or edit <span class="kbd">firebase-config.js</span>.';
+    }
+  })();
+</script>
+</body>
+</html>

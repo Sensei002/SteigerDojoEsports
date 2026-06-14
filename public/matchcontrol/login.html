@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sign in · STGRMatchControl</title>
+<link rel="stylesheet" href="css/app.css">
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
+<script src="firebase-config.js"></script>
+<script src="js/auth.js"></script>
+<style>
+  .login-wrap { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; }
+  .login-card { width: 100%; max-width: 380px; }
+  .login-card h1 { margin: 0 0 4px; font-family: var(--cond); letter-spacing: .5px; }
+  .login-card .sub { color: var(--muted); font-size: 13px; margin: 0 0 18px; }
+  .login-card input[type=password] {
+    width: 100%; background: #0e0e16; color: var(--text);
+    border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; font: inherit;
+  }
+  .login-card input[type=password]:focus { outline: none; border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(var(--accent-rgb),.18); }
+  #err { display: none; margin-bottom: 14px; }
+  .login-foot { color: var(--muted); font-size: 12px; margin-top: 16px; text-align: center; }
+</style>
+</head>
+<body>
+<div class="login-wrap">
+  <form id="loginForm" class="card login-card" autocomplete="on">
+    <span class="accent-edge"></span>
+    <h1>STGR Match Control</h1>
+    <p class="sub">Sign in to access the control panel.</p>
+
+    <div id="err" class="banner warn"></div>
+
+    <div class="field">
+      <label for="username">Username</label>
+      <input type="text" id="username" name="username" autocomplete="username" autofocus required>
+    </div>
+    <div class="field">
+      <label for="password">Password</label>
+      <input type="password" id="password" name="password" autocomplete="current-password" required>
+    </div>
+
+    <button type="submit" id="submitBtn" class="btn primary block">Sign in</button>
+    <div class="login-foot">Overlays don't need a login — only this control panel does.</div>
+  </form>
+</div>
+
+<script>
+(function () {
+  var form = document.getElementById('loginForm');
+  var errEl = document.getElementById('err');
+  var btn = document.getElementById('submitBtn');
+  var next = STGRAuth.safeNext(new URLSearchParams(location.search).get('next'));
+
+  function showErr(msg) { errEl.textContent = msg; errEl.style.display = 'block'; }
+
+  // Already signed in? Skip the form.
+  try {
+    STGRAuth.auth().onAuthStateChanged(function (u) { if (u) location.replace(next); });
+  } catch (e) {
+    showErr('Login is not configured (missing Firebase config). ' + e.message);
+  }
+
+  form.addEventListener('submit', function (e) {
+    e.preventDefault();
+    errEl.style.display = 'none';
+    btn.disabled = true; btn.textContent = 'Signing in…';
+    var user = document.getElementById('username').value;
+    var pw = document.getElementById('password').value;
+    STGRAuth.signIn(user, pw)
+      .then(function () { location.replace(next); })
+      .catch(function (err) {
+        btn.disabled = false; btn.textContent = 'Sign in';
+        // Don't leak which field was wrong.
+        var code = (err && err.code) || '';
+        if (code === 'auth/too-many-requests') showErr('Too many attempts. Try again shortly.');
+        else if (code === 'auth/network-request-failed') showErr('Network error — check your connection.');
+        else showErr('Invalid username or password.');
+      });
+  });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,987 @@
+/* =========================================================================
+ * STGRMatchControl — OVERLAY styling (OBS browser sources)
+ * Rainbow Six Siege esports broadcast look: dark glass, slanted/angular
+ * panels, condensed caps, ATK orange / DEF blue accents.
+ *
+ * MOTION: modelled on the official R6 broadcast package —
+ *   - panels EXTEND outward from the center spine (scaleX wipes), not fades
+ *   - snappy "tactical" expo-out easing with a small settle
+ *   - sequenced assembly (spine -> scores -> team plates -> text -> strip)
+ *   - score punch + light sweep on the team that scores
+ *   - lower third: accent shard leads, body extrudes, text rises under a mask
+ *   - roster cards rise in staggered sequence
+ *   - map ban: cards reveal in sequence; BAN slams a slash stamp, PICK pops
+ *
+ * Background is TRANSPARENT on purpose — OBS composites it over your scene.
+ * Theme colors are driven by CSS variables set live from the control panel.
+ * ========================================================================= */
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@500;600;700&display=swap');
+
+:root {
+  --accent:     #e8202a;   /* STGR red — ATK / brand */
+  --accent-2:   #f5b026;   /* STGR gold — DEF */
+  --ovbg:       #0b0708;
+  --teamA:      #f5b026;
+  --teamB:      #e8202a;
+  --glass:      rgba(14,9,10,.86);
+  --glass-2:    rgba(24,14,16,.92);
+  --stroke:     rgba(255,255,255,.10);
+  --divider:    #39414f;   /* scorebug segment dividers / outline */
+  --cond:       "Barlow Condensed", "Arial Narrow", sans-serif;
+  --display:    "Bebas Neue", "Barlow Condensed", sans-serif;
+  --body:       "Barlow", "Segoe UI", sans-serif;
+
+  /* motion */
+  --snap:  cubic-bezier(.16, 1, .3, 1);     /* expo-out: fast then settle  */
+  --back:  cubic-bezier(.22, 1.4, .34, 1);  /* slight overshoot ("punch")  */
+  --in:    cubic-bezier(.5, 0, .75, 0);     /* accelerate (for exits)      */
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body {
+  width: 100%; height: 100%;
+  background: transparent !important;
+  overflow: hidden;
+  font-family: var(--body);
+  color: #fff;
+  -webkit-font-smoothing: antialiased;
+}
+.stage { position: fixed; inset: 0; }
+
+/* angular helpers */
+.skew { transform: skewX(-12deg); }
+.unskew { transform: skewX(12deg); }
+
+/* =========================================================================
+ * SCOREBUG (top-center match bar)
+ * Assembly order on .show: center spine -> score plates -> team plates ->
+ * logos/text -> map strip. Plates wipe outward from the spine via scaleX.
+ * ========================================================================= */
+.scorebug {
+  position: absolute; top: 0; left: 0; right: 0; width: 100%;
+  display: flex; align-items: stretch; height: 46px; z-index: 3;
+  filter: drop-shadow(0 10px 24px rgba(0,0,0,.55));
+}
+
+.sb-team {
+  display: flex; align-items: center; gap: 8px; padding: 0 12px;
+  background: var(--glass); border-top: 2px solid var(--side, #888);
+  flex: 1 1 0; min-width: 0; position: relative; overflow: hidden;
+  transform: scaleX(0);
+  transition: transform .46s var(--snap) .16s;
+}
+/* logo + name hug the center spine; the colored plate extends to the screen edge */
+.sb-team.left  { padding-right: 16px; justify-content: flex-end; transform-origin: right center; }
+.sb-team.right { padding-left: 16px; justify-content: flex-end; flex-direction: row-reverse; transform-origin: left center; }
+.scorebug.show .sb-team { transform: scaleX(1); }
+
+/* logo + text settle in after the plate has extended */
+.sb-team .logo { width: 28px; height: 28px; object-fit: contain; flex: 0 0 auto;
+  filter: drop-shadow(0 2px 6px rgba(0,0,0,.6));
+  opacity: 0; transition: opacity .3s ease .4s, transform .4s var(--back) .4s; transform: scale(.6); }
+.sb-team .info { display: flex; flex-direction: column; min-width: 0;
+  opacity: 0; transform: translateX(-10px);
+  transition: opacity .32s ease .42s, transform .42s var(--snap) .42s; }
+.sb-team.right .info { align-items: flex-end; transform: translateX(10px); }
+.scorebug.show .sb-team .logo { opacity: 1; transform: scale(1); }
+.scorebug.show .sb-team .info { opacity: 1; transform: translateX(0); }
+
+.sb-team .tname { font-family: var(--cond); font-weight: 700; font-size: 18px; line-height: .95;
+  text-transform: uppercase; letter-spacing: .5px; white-space: nowrap;
+  color: var(--tname-color, #fff); }
+.sb-team .tside { font-family: var(--cond); font-weight: 600; font-size: 10px; letter-spacing: 1.5px;
+  text-transform: uppercase; color: var(--side, #aaa); }
+.sb-bar-color { position: absolute; left: 0; right: 0; bottom: 0; height: 2px; background: var(--tcolor, #888);
+  transform: scaleX(0); transform-origin: inherit; transition: transform .5s var(--snap) .3s; }
+.scorebug.show .sb-bar-color { transform: scaleX(1); }
+
+/* round-history pips + side row under each team name */
+.sb-team .subrow { display: flex; align-items: center; gap: 6px; }
+.sb-team.right .subrow { flex-direction: row-reverse; }
+.pips { display: flex; gap: 3px; align-items: center; max-width: 150px; flex-wrap: wrap; }
+.sb-team.right .pips { justify-content: flex-end; }
+.pip { width: 6px; height: 6px; background: #56657c;
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,.35); }
+.pip.atk { background: var(--accent); box-shadow: 0 0 6px rgba(232,32,42,.6); }
+.pip.def { background: var(--accent-2); box-shadow: 0 0 6px rgba(245,176,38,.6); }
+
+/* light sweep when a team scores (toggled via .flash from JS) */
+.sb-team::before {
+  content: ""; position: absolute; inset: 0; z-index: 4; pointer-events: none;
+  background: linear-gradient(105deg, transparent 42%, rgba(255,255,255,.45) 50%, transparent 58%);
+  transform: translateX(-130%);
+}
+.sb-team.flash::before { animation: sbSweep .6s ease; }
+@keyframes sbSweep { to { transform: translateX(130%); } }
+
+.sb-score {
+  display: flex; align-items: center; justify-content: center; min-width: 56px;
+  background: var(--glass-2); position: relative; z-index: 2;
+  transform: scaleX(0); transition: transform .4s var(--snap) .08s;
+}
+.sb-score.left  { transform-origin: right center; border-left: 1px solid var(--divider); border-right: 1px solid var(--divider); }
+.sb-score.right { transform-origin: left center; border-left: 1px solid var(--divider); border-right: 1px solid var(--divider); }
+.scorebug.show .sb-score { transform: scaleX(1); }
+.sb-score .s { font-family: var(--display); font-size: 30px; line-height: 1; padding: 0 6px;
+  min-width: 28px; text-align: center; display: inline-block;
+  opacity: 0; transition: opacity .28s ease .42s; }
+.scorebug.show .sb-score .s { opacity: 1; }
+/* score punch (JS adds .punch on the plate that just scored) */
+.sb-score.punch .s { animation: sbPunch .5s var(--back); }
+@keyframes sbPunch {
+  0%   { transform: scale(1); }
+  25%  { transform: scale(1.45); text-shadow: 0 0 18px rgba(255,255,255,.8); }
+  60%  { transform: scale(.9); }
+  100% { transform: scale(1); }
+}
+
+/* center spine — holds the event logo (replaces the old "Best of" badge) */
+.sb-center {
+  display: flex; align-items: center; justify-content: center;
+  background: var(--glass-2); padding: 0 12px; flex: 0 0 auto; min-width: 52px; max-width: 130px;
+  position: relative; z-index: 3;
+  transform: scaleY(0); transform-origin: center; transition: transform .4s var(--back); }
+.scorebug.show .sb-center { transform: scaleY(1); }
+.sb-center.empty { min-width: 6px; padding: 0; }
+.sb-event-logo { max-height: 34px; max-width: 106px; object-fit: contain;
+  opacity: 0; transition: opacity .3s ease .2s; }
+.scorebug.show .sb-event-logo { opacity: 1; }
+.sb-center.empty .sb-event-logo { display: none; }
+
+/* far-right message tab (event name) — hangs just under the bar, top-right */
+.sb-msg {
+  position: absolute; top: 46px; right: 0; max-width: 36vw;
+  display: flex; align-items: center; height: 30px; padding: 0 18px 0 26px;
+  background: var(--glass-2); border-top: 2px solid var(--accent);
+  clip-path: polygon(16px 0, 100% 0, 100% 100%, 0 100%);
+  filter: drop-shadow(0 8px 18px rgba(0,0,0,.5));
+  transform: translateY(-100%); opacity: 0;
+  transition: transform .42s var(--snap) .5s, opacity .3s ease .5s;
+  pointer-events: none;
+}
+.sb-msg.show { transform: translateY(0); opacity: 1; }
+.sb-msg-text {
+  font-family: var(--cond); font-size: 17px; line-height: 1; color: #fff;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+/* =========================================================================
+ * MAP CARD (far-left) — current map thumbnail + name
+ * mirror of .sb-msg but on the LEFT: slides DOWN from behind the bar, holds,
+ * then slides back UP and tucks behind it. Driven by mapCard.{visible,play}.
+ * ========================================================================= */
+.sb-mapcard {
+  position: absolute; top: 44px; left: 0; z-index: 1; max-width: 42vw;
+  display: flex; align-items: stretch; height: 60px;
+  background: var(--glass-2); border-bottom: 2px solid var(--accent);
+  clip-path: polygon(0 0, 100% 0, calc(100% - 18px) 100%, 0 100%);
+  filter: drop-shadow(0 8px 18px rgba(0,0,0,.5));
+  transform: translateY(-100%); opacity: 0;
+  transition: transform .45s var(--snap) .1s, opacity .3s ease .1s;
+  pointer-events: none; overflow: hidden;
+}
+.sb-mapcard.show { transform: translateY(0); opacity: 1; }
+.mc-img-wrap {
+  width: 107px; flex: 0 0 auto; position: relative; overflow: hidden;
+  background: #0a0e14 linear-gradient(135deg, var(--glass), transparent);
+}
+/* placeholder slug shown behind the image until/unless artwork loads */
+.mc-img-wrap::after {
+  content: ""; position: absolute; inset: 0;
+  background: repeating-linear-gradient(135deg, rgba(255,255,255,.04) 0 8px, transparent 8px 16px);
+}
+.mc-img { position: relative; z-index: 1; width: 100%; height: 100%; object-fit: cover;
+  display: block; opacity: 0; transition: opacity .35s ease .15s; }
+.sb-mapcard.has-img .mc-img { opacity: 1; }
+.mc-meta { display: flex; flex-direction: column; justify-content: center;
+  padding: 0 22px 0 14px; min-width: 0; }
+.mc-name { font-family: var(--cond); font-weight: 700; font-size: 22px; line-height: 1;
+  text-transform: uppercase; color: #fff; letter-spacing: .5px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* =========================================================================
+ * LOWER THIRD (caster names)
+ * accent shard leads in -> body extrudes along the skew -> text rises
+ * ========================================================================= */
+.lt-wrap { position: absolute; left: 70px; bottom: 70px; max-width: 70vw;
+  display: flex; flex-direction: column; gap: 20px; align-items: flex-start; }
+.lt {
+  display: inline-flex; align-items: stretch; min-height: 64px; position: relative;
+  filter: drop-shadow(0 12px 26px rgba(0,0,0,.55));
+}
+.lt-accent { width: 12px; background: linear-gradient(180deg, var(--accent), #c85e00);
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 8px 100%);
+  opacity: 0; transform: translateX(-160%);
+  transition: transform .42s var(--snap), opacity .3s ease; }
+.lt.show .lt-accent { opacity: 1; transform: translateX(0); }
+.lt-body { background: var(--glass); padding: 12px 26px 12px 18px;
+  clip-path: polygon(0 0, 100% 0, calc(100% - 18px) 100%, 0 100%); min-width: 280px;
+  transform: scaleX(0); transform-origin: left center; transition: transform .44s var(--snap) .12s; }
+.lt.show .lt-body { transform: scaleX(1); }
+.lt-casters { display: flex; gap: 40px; align-items: center; }
+.lt-caster, .lt-title .nm, .lt-title .hd {
+  opacity: 0; transform: translateY(10px);
+  transition: opacity .32s ease .34s, transform .4s var(--snap) .34s; }
+.lt-caster:nth-child(2) { transition-delay: .42s; }
+.lt-caster:nth-child(3) { transition-delay: .5s; }
+.lt-caster:nth-child(4) { transition-delay: .58s; }
+.lt-title .hd { transition-delay: .42s; }
+.lt.show .lt-caster, .lt.show .lt-title .nm, .lt.show .lt-title .hd { opacity: 1; transform: translateY(0); }
+.lt-caster .nm { font-family: var(--cond); font-weight: 700; font-size: 30px; line-height: .95;
+  text-transform: uppercase; letter-spacing: .5px; }
+.lt-caster .hd { font-family: var(--body); font-weight: 600; font-size: 14px; color: var(--accent);
+  letter-spacing: .5px; }
+.lt-title .nm { font-family: var(--cond); font-weight: 700; font-size: 32px; text-transform: uppercase;
+  line-height: .95; }
+.lt-title .hd { font-family: var(--body); font-weight: 600; font-size: 15px; color: var(--accent);
+  letter-spacing: 1px; text-transform: uppercase; }
+.lt-tag { position: absolute; top: -14px; left: 18px; background: var(--accent); color: #160d00;
+  font-family: var(--cond); font-weight: 700; font-size: 12px; letter-spacing: 2px; text-transform: uppercase;
+  padding: 2px 12px; clip-path: polygon(0 0,100% 0,calc(100% - 8px) 100%,0 100%); z-index: 5;
+  opacity: 0; transform: translateY(-8px) scaleX(.4); transform-origin: left;
+  transition: opacity .3s ease .2s, transform .4s var(--back) .2s; }
+.lt.show .lt-tag { opacity: 1; transform: translateY(0) scaleX(1); }
+
+/* =========================================================================
+ * ROSTER (full team line-up)
+ * title wipes in -> accent bar grows -> player cards rise in sequence
+ * ========================================================================= */
+.roster {
+  position: absolute; inset: 0; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 0;
+  opacity: 0; transition: opacity .5s ease;
+}
+.roster.show { opacity: 1; }
+/* shared animated backdrop ([data-ss-bg] + .ssb in a .soon-bg) — same source as
+   the Starting Soon / bracket scenes. Sits behind the line-up; paused while hidden. */
+.roster > .soon-bg { z-index: 0; }
+.roster:not(.show) .ssb { animation-play-state: paused; }
+.roster-head, .roster-bar, .players { position: relative; z-index: 1; }
+
+/* HEAD (logo + team name) — slides in as ONE group from the upper-left,
+   leading the entrance. Smooth expo-out glide, no per-element wipes. */
+.roster-head { display: flex; align-items: center; gap: 22px; margin-bottom: 30px;
+  opacity: 0; transform: translate(-70px, -28px);
+  transition: opacity .6s ease, transform .8s var(--snap); }
+.roster.show .roster-head { opacity: 1; transform: translate(0, 0); }
+.roster-head .logo { width: 120px; height: 120px; object-fit: contain;
+  filter: drop-shadow(0 6px 18px rgba(0,0,0,.6)); }
+.roster-head .ttl { font-family: var(--display); font-size: 96px; line-height: .85; text-transform: uppercase; }
+.roster-head .sub { font-family: var(--cond); font-weight: 600; font-size: 20px; letter-spacing: 4px;
+  text-transform: uppercase; color: var(--teamcolor, var(--accent)); }
+.roster-bar { width: 220px; height: 6px; background: var(--teamcolor, var(--accent));
+  margin: 0 auto 30px; clip-path: polygon(0 0,100% 0,calc(100% - 12px) 100%,12px 100%);
+  opacity: 0; transform: scaleX(0); transform-origin: left center;
+  transition: transform .6s var(--snap) .34s, opacity .4s ease .34s; }
+.roster.show .roster-bar { opacity: 1; transform: scaleX(1); }
+.players { display: flex; gap: 18px; }
+
+/* CARDS — slide up from below to center, AFTER the head has settled.
+   Longer travel + smooth expo-out for a soft glide; base delay holds them
+   until the head finishes, then each staggers by --d. */
+.player {
+  width: 200px; background: var(--glass); border-top: 4px solid var(--player-accent, var(--teamcolor, var(--accent)));
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 16px), calc(100% - 16px) 100%, 0 100%);
+  padding: 20px 18px 22px; text-align: left; position: relative; overflow: hidden;
+  transform: translateY(70px); opacity: 0;
+  transition: transform .8s var(--snap), opacity .6s ease;
+  transition-delay: calc(var(--d, 0s) + .42s);
+}
+.roster.show .player { transform: translateY(0); opacity: 1; }
+/* highlight sweep that runs across each card as it lands */
+.player::before {
+  content: ""; position: absolute; inset: 0;
+  background: linear-gradient(115deg, transparent 40%, rgba(255,255,255,.18) 50%, transparent 60%);
+  transform: translateX(-130%); }
+.roster.show .player::before { animation: rosterSweep .8s ease forwards; animation-delay: calc(var(--d, 0s) + .6s); }
+@keyframes rosterSweep { to { transform: translateX(130%); } }
+.player .ign { font-family: var(--cond); font-weight: 700; font-size: 30px; text-transform: uppercase;
+  line-height: 1; margin: 6px 0 4px; word-break: break-word; }
+.player .role { font-family: var(--body); font-weight: 600; font-size: 13px; letter-spacing: 2px;
+  text-transform: uppercase; color: #9fb0c6; }
+
+/* ---- live tracker.network stats (K/D · HS% · WIN · KOST) ----------------- *
+ * 2×2 grid under the role. Only present when the stats proxy is configured
+ * (.player.has-stats). Values fade/rise in as each fetch resolves so the card
+ * entrance never waits on the network. --d carries the card's stagger delay.
+ * ------------------------------------------------------------------------- */
+.player.has-stats { width: 224px; }
+.pstats {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 6px;
+  margin-top: 14px; padding-top: 12px;
+  border-top: 1px solid rgba(255,255,255,.10);
+}
+.pstat {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 1px;
+  opacity: 0; transform: translateY(6px);
+  transition: opacity .4s ease, transform .4s var(--snap);
+  transition-delay: calc(var(--d, 0s) + .9s);
+}
+.roster.show .player .pstat { opacity: 1; transform: translateY(0); }
+.pstat .pv { font-family: var(--display); font-size: 26px; line-height: .9;
+  color: var(--teamcolor, var(--accent)); letter-spacing: .5px; }
+.pstat .pl { font-family: var(--body); font-weight: 700; font-size: 10px; letter-spacing: 2px;
+  text-transform: uppercase; color: #8295ad; }
+
+/* =========================================================================
+ * MAP BAN / VETO
+ * cards reveal in sequence; BAN slams a slash stamp, PICK pops + glows
+ * ========================================================================= */
+.mapban {
+  position: absolute; inset: 0; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; opacity: 0; transition: opacity .4s;
+}
+.mapban.show { opacity: 1; }
+.mb-head { font-family: var(--display); font-size: 64px; text-transform: uppercase; margin-bottom: 6px;
+  clip-path: inset(0 100% 0 0); transition: clip-path .55s var(--snap) .05s; }
+.mapban.show .mb-head { clip-path: inset(0 0 0 0); }
+.mb-sub { font-family: var(--cond); font-weight: 600; letter-spacing: 4px; text-transform: uppercase;
+  color: var(--accent); margin-bottom: 30px; opacity: 0; transform: translateY(6px);
+  transition: .4s ease .22s; }
+.mapban.show .mb-sub { opacity: 1; transform: translateY(0); }
+.mb-grid { display: flex; gap: 14px; flex-wrap: wrap; justify-content: center; max-width: 1100px; }
+.mb-map {
+  width: 150px; height: 196px; background: var(--glass); border: 1px solid var(--stroke);
+  clip-path: polygon(0 0,100% 0,100% calc(100% - 14px),calc(100% - 14px) 100%,0 100%);
+  display: flex; flex-direction: column; align-items: center; justify-content: flex-end;
+  padding: 14px; position: relative; overflow: hidden;
+  transition: filter .4s ease, border-color .35s ease, box-shadow .35s ease;
+}
+/* entrance reveal — staggered by --i set from JS, plays once on first render */
+.mb-map.reveal { animation: mbReveal .5s var(--snap) backwards; animation-delay: calc(var(--i, 0) * .06s); }
+@keyframes mbReveal { from { opacity: 0; transform: translateY(22px) scale(.92); } to { opacity: 1; transform: none; } }
+.mb-map .mname { font-family: var(--cond); font-weight: 700; font-size: 22px; text-transform: uppercase;
+  text-align: center; line-height: 1; z-index: 2; }
+.mb-map .mstate { font-family: var(--cond); font-weight: 700; font-size: 13px; letter-spacing: 2px;
+  text-transform: uppercase; z-index: 2; margin-top: 6px; }
+.mb-map.ban { filter: grayscale(1) brightness(.45); }
+.mb-map.ban::after { content: "BANNED"; position: absolute; inset: 0; display: flex; align-items: center;
+  justify-content: center; font-family: var(--display); font-size: 26px; color: #ff5252;
+  background: rgba(0,0,0,.35); transform: rotate(-8deg); letter-spacing: 2px; z-index: 3; }
+/* slam the stamp in when a card newly becomes a ban (JS adds .just) */
+.mb-map.ban.just::after { animation: mbStamp .42s var(--back); }
+@keyframes mbStamp {
+  0%   { transform: rotate(-8deg) scale(2.4); opacity: 0; }
+  55%  { transform: rotate(-8deg) scale(.86); opacity: 1; }
+  100% { transform: rotate(-8deg) scale(1); }
+}
+.mb-map.pick { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent), 0 10px 26px rgba(232,32,42,.4); }
+.mb-map.pick .mstate { color: var(--accent); }
+.mb-map.pick.just, .mb-map.decider.just { animation: mbPop .42s var(--back); }
+@keyframes mbPop { 0%{transform:scale(1)} 40%{transform:scale(1.08)} 100%{transform:scale(1)} }
+.mb-map.decider { border-color: var(--accent-2); box-shadow: 0 0 0 2px var(--accent-2); }
+.mb-map.decider .mstate { color: var(--accent-2); }
+.mb-map.active { animation: mbPulse 1.1s infinite; border-color:#fff; }
+@keyframes mbPulse { 0%,100%{ box-shadow:0 0 0 2px rgba(255,255,255,.75);} 50%{ box-shadow:0 0 0 6px rgba(255,255,255,.12);} }
+.mb-map .byteam { font-size: 11px; color: #9fb0c6; letter-spacing: 1px; text-transform: uppercase; z-index:2; }
+
+/* =========================================================================
+ * ROUND HISTORY (per-round map + bomb objective + winner)
+ * panel slides up; header wipes in; rows reveal in sequence, newest pops
+ * ========================================================================= */
+.roundhistory {
+  position: absolute; left: 70px; top: 50%; transform: translateY(-50%);
+  width: 460px; max-height: 86vh; display: flex; flex-direction: column;
+  opacity: 0; transition: opacity .4s ease;
+}
+.roundhistory.show { opacity: 1; }
+
+.rh-head {
+  display: flex; align-items: center; gap: 14px; padding: 12px 16px;
+  background: var(--glass-2); border-top: 3px solid var(--accent);
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 14px 100%);
+  transform: scaleX(0); transform-origin: left center;
+  transition: transform .46s var(--snap) .08s;
+}
+.roundhistory.show .rh-head { transform: scaleX(1); }
+.rh-team { display: flex; align-items: center; gap: 10px; flex: 1 1 0; min-width: 0;
+  opacity: 0; transition: opacity .3s ease .34s; }
+.roundhistory.show .rh-team { opacity: 1; }
+.rh-team.right { flex-direction: row; justify-content: flex-end; }
+.rh-team .logo { width: 40px; height: 40px; object-fit: contain; flex: 0 0 auto;
+  filter: drop-shadow(0 2px 6px rgba(0,0,0,.6)); }
+.rh-team .tname { font-family: var(--cond); font-weight: 700; font-size: 22px; line-height: 1;
+  text-transform: uppercase; letter-spacing: .5px; white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis; }
+.rh-team.left  .tname { color: var(--rhA, var(--teamA)); }
+.rh-team.right .tname { color: var(--rhB, var(--teamB)); text-align: right; }
+.rh-title { font-family: var(--display); font-size: 20px; letter-spacing: 2px;
+  text-transform: uppercase; flex: 0 0 auto; padding: 0 4px; color: #cdd7e6; }
+
+.rh-bar { height: 4px; background: linear-gradient(90deg, var(--rhA, var(--teamA)), var(--rhB, var(--teamB)));
+  margin: 0 0 6px; transform: scaleX(0); transform-origin: left center;
+  transition: transform .5s var(--snap) .24s; }
+.roundhistory.show .rh-bar { transform: scaleX(1); }
+
+.rh-rows { display: flex; flex-direction: column; gap: 6px; overflow: hidden; }
+.rh-row {
+  display: flex; align-items: center; gap: 12px; padding: 8px 14px;
+  background: var(--glass); border-left: 4px solid #56657c;
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 8px 100%);
+  transform: translateX(-24px); opacity: 0;
+  transition: transform .45s var(--snap), opacity .4s ease;
+  transition-delay: var(--d, 0s);
+}
+.roundhistory.show .rh-row { transform: translateX(0); opacity: 1; }
+.rh-row.a { border-left-color: var(--rhA, var(--teamA)); }
+.rh-row.b { border-left-color: var(--rhB, var(--teamB)); }
+/* newest logged round pops in */
+.rh-row.just { animation: rhPop .5s var(--back); }
+@keyframes rhPop {
+  0%   { transform: translateX(-30px) scale(.96); opacity: 0; }
+  60%  { transform: translateX(0) scale(1.03); opacity: 1; }
+  100% { transform: translateX(0) scale(1); }
+}
+.rh-rnum { font-family: var(--display); font-size: 22px; line-height: 1; flex: 0 0 auto;
+  min-width: 42px; color: #cdd7e6; }
+.rh-row.a .rh-rnum { color: var(--rhA, var(--teamA)); }
+.rh-row.b .rh-rnum { color: var(--rhB, var(--teamB)); }
+.rh-rlogo { width: 26px; height: 26px; object-fit: contain; flex: 0 0 auto; }
+.rh-rteam { font-family: var(--cond); font-weight: 700; font-size: 18px; text-transform: uppercase;
+  letter-spacing: .5px; flex: 0 0 auto; white-space: nowrap; }
+.rh-row.a .rh-rteam { color: var(--rhA, var(--teamA)); }
+.rh-row.b .rh-rteam { color: var(--rhB, var(--teamB)); }
+.rh-rwhere { font-family: var(--body); font-weight: 600; font-size: 13px; color: #9fb0c6;
+  letter-spacing: .3px; flex: 1 1 0; min-width: 0; text-align: right;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rh-empty { font-family: var(--cond); font-weight: 600; letter-spacing: 2px; text-transform: uppercase;
+  color: #9fb0c6; padding: 14px; background: var(--glass); }
+
+/* =========================================================================
+ * STARTING SOON (full-screen pre-show scene)
+ * event logo on top -> title/subtitle -> countdown -> team crests
+ * Put this in its own OBS scene.
+ * ========================================================================= */
+.soon {
+  position: absolute; inset: 0; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 0; text-align: center;
+  opacity: 0; transition: opacity .5s ease;
+}
+.soon.show { opacity: 1; }
+
+/* =========================================================================
+ * STARTING SOON — animated backdrops. One base layer + up to three moving
+ * sub-layers (.ssb). The active look is chosen by [data-ss-bg="…"] on <html>,
+ * set live from Settings (keys in OV.SS_BACKGROUNDS). Everything stays dark so
+ * the title / timer / teams (lifted above via z-index) read clearly.
+ * ========================================================================= */
+.soon-bg { position: absolute; inset: 0; z-index: 0; overflow: hidden;
+  background: radial-gradient(120% 100% at 50% 32%, #11161e 0%, #0a0d12 55%, #05070a 100%); }
+.soon-bg .ssb { position: absolute; inset: -25%; will-change: transform, opacity, background-position; }
+/* edge vignette keeps focus on the center text */
+.soon-bg::after { content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: radial-gradient(135% 120% at 50% 36%, transparent 32%, rgba(0,0,0,.6) 100%); }
+/* don't burn CPU animating while the scene is hidden */
+.soon:not(.show) .ssb { animation-play-state: paused; }
+/* lift the scene content above the moving backdrop */
+.soon-event, .soon-title, .soon-sub, .soon-timer, .soon-teams { position: relative; z-index: 1; }
+/* transparent — hide the backdrop entirely so the OBS scene shows through */
+[data-ss-bg="none"] .soon-bg { display: none; }
+
+/* ---- Carbon Grid ---- */
+[data-ss-bg="carbon"] .ssb-1 {
+  background-image:
+    linear-gradient(rgba(255,255,255,.055) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,.055) 1px, transparent 1px);
+  background-size: 48px 48px;
+  -webkit-mask-image: radial-gradient(circle at 50% 44%, #000 0%, transparent 78%);
+          mask-image: radial-gradient(circle at 50% 44%, #000 0%, transparent 78%);
+  animation: ssGrid 22s linear infinite; }
+[data-ss-bg="carbon"] .ssb-2 {
+  background: linear-gradient(115deg, transparent 42%,
+    color-mix(in srgb, var(--accent) 14%, transparent) 50%, transparent 58%);
+  animation: ssSheen 9s ease-in-out infinite; }
+@keyframes ssGrid { to { background-position: 48px 48px, 48px 48px; } }
+@keyframes ssSheen { 0%,100% { transform: translateX(-35%); opacity: .3; }
+  50% { transform: translateX(35%); opacity: .75; } }
+
+/* ---- Aurora Drift ---- */
+[data-ss-bg="aurora"] .ssb-1 {
+  background:
+    radial-gradient(38% 40% at 32% 34%, color-mix(in srgb, var(--accent) 48%, transparent), transparent 70%),
+    radial-gradient(42% 44% at 70% 64%, color-mix(in srgb, var(--accent-2) 42%, transparent), transparent 70%);
+  filter: blur(64px); opacity: .55;
+  animation: ssAuroraA 24s ease-in-out infinite alternate; }
+[data-ss-bg="aurora"] .ssb-2 {
+  background:
+    radial-gradient(36% 38% at 62% 30%, color-mix(in srgb, var(--accent-2) 36%, transparent), transparent 70%),
+    radial-gradient(40% 42% at 28% 70%, color-mix(in srgb, var(--accent) 34%, transparent), transparent 70%);
+  filter: blur(72px); opacity: .45;
+  animation: ssAuroraB 31s ease-in-out infinite alternate; }
+@keyframes ssAuroraA { 0% { transform: translate3d(-5%,-4%,0) scale(1.05); }
+  100% { transform: translate3d(6%,5%,0) scale(1.28); } }
+@keyframes ssAuroraB { 0% { transform: translate3d(5%,4%,0) scale(1.22); }
+  100% { transform: translate3d(-6%,-5%,0) scale(1.0); } }
+
+/* ---- Velocity Lines (diagonal scroll; one full tile shift = seamless loop) ---- */
+[data-ss-bg="velocity"] .soon-bg { background: linear-gradient(135deg, #0a0e15, #05070b 70%); }
+[data-ss-bg="velocity"] .ssb-1 {
+  background-image: linear-gradient(115deg, transparent 0 44%,
+    color-mix(in srgb, var(--accent) 16%, transparent) 50%, transparent 56%);
+  background-size: 90px 90px; animation: ssTile1 5s linear infinite; }
+[data-ss-bg="velocity"] .ssb-2 {
+  background-image: linear-gradient(115deg, transparent 0 47%,
+    color-mix(in srgb, var(--accent-2) 10%, transparent) 50%, transparent 53%);
+  background-size: 200px 200px; animation: ssTile2 12s linear infinite; }
+@keyframes ssTile1 { to { background-position: 90px 90px; } }
+@keyframes ssTile2 { to { background-position: 200px 200px; } }
+
+/* ---- Circuit Dots ---- */
+[data-ss-bg="circuit"] .ssb-1 {
+  background-image: radial-gradient(color-mix(in srgb, var(--accent) 26%, transparent) 1.6px, transparent 1.7px);
+  background-size: 30px 30px;
+  -webkit-mask-image: radial-gradient(circle at 50% 42%, #000, transparent 75%);
+          mask-image: radial-gradient(circle at 50% 42%, #000, transparent 75%);
+  animation: ssDots 26s linear infinite; }
+[data-ss-bg="circuit"] .ssb-2 {
+  background: radial-gradient(circle at 50% 40%, color-mix(in srgb, var(--accent) 14%, transparent), transparent 55%);
+  animation: ssCorePulse 4.5s ease-in-out infinite; }
+@keyframes ssDots { to { background-position: 30px 30px; } }
+@keyframes ssCorePulse { 0%,100% { opacity: .25; transform: scale(1); }
+  50% { opacity: .6; transform: scale(1.08); } }
+
+/* ---- Radar Sweep ---- */
+[data-ss-bg="radar"] .ssb-1 {
+  background: conic-gradient(from 0deg, transparent 0 300deg,
+    color-mix(in srgb, var(--accent) 30%, transparent) 356deg, transparent 360deg);
+  -webkit-mask-image: radial-gradient(circle at 50% 50%, #000 0 58%, transparent 60%);
+          mask-image: radial-gradient(circle at 50% 50%, #000 0 58%, transparent 60%);
+  animation: ssSpin 7s linear infinite; }
+[data-ss-bg="radar"] .ssb-2 {
+  background:
+    radial-gradient(circle at 50% 50%, transparent 0 18%, color-mix(in srgb, var(--accent) 14%, transparent) 18.3%, transparent 19%),
+    radial-gradient(circle at 50% 50%, transparent 0 34%, color-mix(in srgb, var(--accent) 11%, transparent) 34.3%, transparent 35%),
+    radial-gradient(circle at 50% 50%, transparent 0 50%, color-mix(in srgb, var(--accent) 9%, transparent) 50.3%, transparent 51%);
+  animation: ssCorePulse 5s ease-in-out infinite; }
+@keyframes ssSpin { to { transform: rotate(360deg); } }
+
+/* ---- Spotlight ---- */
+[data-ss-bg="spotlight"] .soon-bg { background: radial-gradient(circle at 50% 40%, #0a0e14, #04060a 75%); }
+[data-ss-bg="spotlight"] .ssb-1 {
+  background: radial-gradient(42% 78% at 50% 50%, color-mix(in srgb, var(--accent) 22%, transparent), transparent 70%);
+  animation: ssSweepA 11s ease-in-out infinite alternate; }
+[data-ss-bg="spotlight"] .ssb-2 {
+  background: radial-gradient(36% 70% at 50% 50%, color-mix(in srgb, var(--accent-2) 14%, transparent), transparent 70%);
+  animation: ssSweepB 15s ease-in-out infinite alternate; }
+@keyframes ssSweepA { 0% { transform: translateX(-32%); } 100% { transform: translateX(32%); } }
+@keyframes ssSweepB { 0% { transform: translateX(28%); } 100% { transform: translateX(-28%); } }
+
+/* ---- Hex Flow (drifting hex-mesh lattice + a pulsing accent core) ---- */
+[data-ss-bg="hexflow"] .soon-bg { background: radial-gradient(120% 100% at 50% 32%, #0c121b 0%, #070a10 58%, #05070a 100%); }
+[data-ss-bg="hexflow"] .ssb-1 {
+  background-image:
+    repeating-linear-gradient(60deg,  color-mix(in srgb, var(--accent) 12%, transparent) 0 1px, transparent 1px 30px),
+    repeating-linear-gradient(-60deg, color-mix(in srgb, var(--accent) 12%, transparent) 0 1px, transparent 1px 30px),
+    repeating-linear-gradient(0deg,   color-mix(in srgb, var(--accent-2) 9%, transparent) 0 1px, transparent 1px 52px);
+  -webkit-mask-image: radial-gradient(circle at 50% 44%, #000 0%, transparent 80%);
+          mask-image: radial-gradient(circle at 50% 44%, #000 0%, transparent 80%);
+  animation: ssHexDrift 20s linear infinite; }
+[data-ss-bg="hexflow"] .ssb-2 {
+  background: radial-gradient(40% 48% at 50% 46%, color-mix(in srgb, var(--accent) 16%, transparent), transparent 70%);
+  animation: ssCorePulse 6s ease-in-out infinite; }
+@keyframes ssHexDrift { to { background-position: 30px 52px, -30px 52px, 0 104px; } }
+
+/* ---- Embers Rise (warm sparks float up from a smouldering base) ---- */
+[data-ss-bg="embers"] .soon-bg { background: radial-gradient(120% 90% at 50% 116%, #2a0a04 0%, #120402 45%, #070302 100%); }
+[data-ss-bg="embers"] .ssb-1 {
+  background-image:
+    radial-gradient(circle, color-mix(in srgb, var(--accent) 92%, transparent) 0 1.3px, transparent 2px),
+    radial-gradient(circle, color-mix(in srgb, var(--accent-2) 78%, transparent) 0 1px, transparent 1.7px);
+  background-size: 130px 240px, 90px 190px;
+  background-position: 0 0, 55px 90px;
+  -webkit-mask-image: linear-gradient(to top, transparent 0%, #000 26%, #000 72%, transparent 100%);
+          mask-image: linear-gradient(to top, transparent 0%, #000 26%, #000 72%, transparent 100%);
+  opacity: .8; animation: ssEmberRise 13s linear infinite; }
+[data-ss-bg="embers"] .ssb-2 {
+  background: radial-gradient(85% 46% at 50% 100%, color-mix(in srgb, var(--accent) 24%, transparent), transparent 72%);
+  animation: ssCorePulse 5s ease-in-out infinite; }
+@keyframes ssEmberRise { to { background-position: 0 -240px, 55px -190px; } }
+
+/* ---- Nebula (cosmic colour clouds drift over a slow twinkling starfield) ---- */
+[data-ss-bg="nebula"] .soon-bg { background: radial-gradient(120% 100% at 50% 36%, #0a0820 0%, #070416 55%, #04030c 100%); }
+[data-ss-bg="nebula"] .ssb-1 {
+  background:
+    radial-gradient(38% 42% at 34% 40%, color-mix(in srgb, var(--accent) 42%, transparent), transparent 70%),
+    radial-gradient(44% 48% at 68% 62%, color-mix(in srgb, var(--accent-2) 38%, transparent), transparent 70%);
+  filter: blur(66px); opacity: .5;
+  animation: ssNebula 30s ease-in-out infinite alternate; }
+[data-ss-bg="nebula"] .ssb-2 {
+  background-image:
+    radial-gradient(1px 1px at 18% 28%, #fff, transparent 60%),
+    radial-gradient(1px 1px at 72% 62%, #fff, transparent 60%),
+    radial-gradient(1.4px 1.4px at 42% 80%, #cfe0ff, transparent 60%),
+    radial-gradient(1px 1px at 86% 24%, #fff, transparent 60%),
+    radial-gradient(1px 1px at 56% 48%, #fff, transparent 60%),
+    radial-gradient(1.2px 1.2px at 12% 70%, #fff, transparent 60%),
+    radial-gradient(1px 1px at 30% 56%, #cfe0ff, transparent 60%);
+  background-size: 320px 320px; opacity: .55;
+  animation: ssTwinkle 6s ease-in-out infinite, ssStarDrift 90s linear infinite; }
+@keyframes ssNebula { 0% { transform: translate3d(-4%,-3%,0) scale(1.08) rotate(0deg); }
+  100% { transform: translate3d(5%,4%,0) scale(1.3) rotate(7deg); } }
+@keyframes ssTwinkle { 0%,100% { opacity: .35; } 50% { opacity: .7; } }
+@keyframes ssStarDrift { to { background-position: 320px 160px; } }
+
+.soon-event { max-height: 200px; max-width: 56vw; object-fit: contain; margin-bottom: 26px;
+  filter: drop-shadow(0 10px 30px rgba(0,0,0,.6));
+  opacity: 0; transform: translateY(-18px) scale(.96);
+  transition: opacity .5s ease .1s, transform .6s var(--back) .1s; }
+.soon.show .soon-event { opacity: 1; transform: translateY(0) scale(1); }
+
+.soon-title { font-family: var(--display); font-size: 88px; line-height: .9; text-transform: uppercase;
+  letter-spacing: 3px; clip-path: inset(0 100% 0 0); transition: clip-path .6s var(--snap) .2s; }
+.soon.show .soon-title { clip-path: inset(0 0 0 0); }
+.soon-sub { font-family: var(--cond); font-weight: 600; font-size: 26px; letter-spacing: 4px;
+  text-transform: uppercase; color: var(--accent); margin-top: 8px;
+  opacity: 0; transform: translateY(8px); transition: .45s ease .36s; }
+.soon.show .soon-sub { opacity: 1; transform: translateY(0); }
+
+.soon-timer { font-family: var(--display); font-size: 120px; line-height: 1; margin: 18px 0 34px;
+  letter-spacing: 2px; color: #fff; text-shadow: 0 6px 30px rgba(0,0,0,.5);
+  opacity: 0; transform: scale(.9); transition: opacity .5s ease .4s, transform .6s var(--back) .4s; }
+.soon.show .soon-timer { opacity: 1; transform: scale(1); }
+.soon-timer.zero { color: var(--accent); animation: soonPulse 1.1s ease-in-out infinite; }
+@keyframes soonPulse { 0%,100% { opacity: 1; } 50% { opacity: .55; } }
+
+.soon-teams { display: flex; align-items: center; justify-content: center; gap: 60px;
+  opacity: 0; transform: translateY(24px); transition: opacity .55s ease .5s, transform .6s var(--snap) .5s; }
+.soon.show .soon-teams { opacity: 1; transform: translateY(0); }
+.soon-team { display: flex; flex-direction: column; align-items: center; gap: 16px; width: 360px; }
+.soon-team .logo { width: 180px; height: 180px; object-fit: contain;
+  filter: drop-shadow(0 8px 24px rgba(0,0,0,.6)); }
+.soon-team .tname { font-family: var(--cond); font-weight: 700; font-size: 40px; line-height: 1;
+  text-transform: uppercase; letter-spacing: 1px; }
+.soon-team.left  .tname { color: var(--ssA, var(--teamA)); }
+.soon-team.right .tname { color: var(--ssB, var(--teamB)); }
+.soon-vs { font-family: var(--display); font-size: 64px; color: #9fb0c6; line-height: 1;
+  text-shadow: 0 4px 18px rgba(0,0,0,.5); }
+
+/* =========================================================================
+ * MOTION STYLES  (data-anim on <html>, set live by OV.applyTheme)
+ * "siege" is the default look defined above. The blocks below reshape the
+ * shared entrance/exit feel across EVERY overlay. Most reuse the existing
+ * transforms and only swap the easing variables, so they cascade for free.
+ * ========================================================================= */
+
+/* ---- FADE — clean broadcast cross-fade: no wipes, skews or slides -------- */
+[data-anim="fade"] .sb-team,
+[data-anim="fade"] .sb-score,
+[data-anim="fade"] .sb-center,
+[data-anim="fade"] .sb-bar-color,
+[data-anim="fade"] .sb-team .logo,
+[data-anim="fade"] .sb-team .info,
+[data-anim="fade"] .lt-accent,
+[data-anim="fade"] .lt-body,
+[data-anim="fade"] .lt-tag,
+[data-anim="fade"] .lt-caster,
+[data-anim="fade"] .lt-title .nm,
+[data-anim="fade"] .lt-title .hd,
+[data-anim="fade"] .roster-head,
+[data-anim="fade"] .roster-bar,
+[data-anim="fade"] .player,
+[data-anim="fade"] .rh-head,
+[data-anim="fade"] .rh-team,
+[data-anim="fade"] .rh-bar,
+[data-anim="fade"] .rh-row,
+[data-anim="fade"] .soon-event,
+[data-anim="fade"] .soon-sub,
+[data-anim="fade"] .soon-timer,
+[data-anim="fade"] .soon-teams,
+[data-anim="fade"] .mb-map { transform: none !important; }
+/* turn the directional clip-path wipes into plain fades */
+[data-anim="fade"] .roster-head .ttl,
+[data-anim="fade"] .mb-head,
+[data-anim="fade"] .soon-title { clip-path: none !important; }
+/* scorebug plates have no fade of their own — give them one */
+[data-anim="fade"] .sb-team,
+[data-anim="fade"] .sb-score,
+[data-anim="fade"] .sb-center { opacity: 0; transition: opacity .45s ease !important; }
+[data-anim="fade"] .scorebug.show .sb-team,
+[data-anim="fade"] .scorebug.show .sb-score,
+[data-anim="fade"] .scorebug.show .sb-center { opacity: 1; }
+
+/* ---- POP — bouncy, energetic: reuse transforms with springy overshoot ---- */
+[data-anim="pop"] {
+  --snap: cubic-bezier(.18, 1.5, .4, 1);    /* expo-out with a real bounce */
+  --back: cubic-bezier(.2, 2, .32, 1);      /* big punch overshoot          */
+}
+
+/* ---- CINEMATIC — smooth, slow easing + a soft blur-in on full scenes ----- */
+[data-anim="cinematic"] {
+  --snap: cubic-bezier(.55, 0, .1, 1);      /* gentle ease-in-out           */
+  --back: cubic-bezier(.55, 0, .1, 1);
+}
+[data-anim="cinematic"] .roster,
+[data-anim="cinematic"] .mapban,
+[data-anim="cinematic"] .roundhistory,
+[data-anim="cinematic"] .soon {
+  filter: blur(10px);
+  transition: opacity .6s ease, filter .6s ease;
+}
+[data-anim="cinematic"] .roster.show,
+[data-anim="cinematic"] .mapban.show,
+[data-anim="cinematic"] .roundhistory.show,
+[data-anim="cinematic"] .soon.show { filter: blur(0); }
+
+/* ---- GLITCH — digital snap: hard easing + a one-shot clip/jitter on scenes -- */
+[data-anim="glitch"] {
+  --snap: cubic-bezier(.2, .85, 0, 1);      /* fast, almost-instant settle */
+  --back: cubic-bezier(.2, .85, 0, 1);
+}
+/* full-screen scenes punch in with a brief horizontal-band glitch */
+[data-anim="glitch"] .roster.show,
+[data-anim="glitch"] .mapban.show,
+[data-anim="glitch"] .roundhistory.show,
+[data-anim="glitch"] .soon.show { animation: animGlitch .42s steps(2, end) both; }
+@keyframes animGlitch {
+  0%   { opacity: 0; clip-path: inset(46% 0 46% 0); transform: translateX(-8px); }
+  25%  { opacity: 1; clip-path: inset(8% 0 62% 0);  transform: translateX(7px); }
+  50%  { opacity: 1; clip-path: inset(58% 0 12% 0); transform: translateX(-4px); }
+  75%  { opacity: 1; clip-path: inset(22% 0 36% 0); transform: translateX(3px); }
+  100% { opacity: 1; clip-path: inset(0 0 0 0);     transform: none; }
+}
+
+/* ---- SLIDE — directional push: whole scenes glide in from the right -------- */
+[data-anim="slide"] {
+  --snap: cubic-bezier(.22, 1, .36, 1);     /* strong ease-out, no overshoot */
+  --back: cubic-bezier(.22, 1, .36, 1);
+}
+[data-anim="slide"] .roster,
+[data-anim="slide"] .mapban,
+[data-anim="slide"] .roundhistory,
+[data-anim="slide"] .soon {
+  transform: translateX(48px);
+  transition: opacity .5s ease, transform .55s var(--snap);
+}
+[data-anim="slide"] .roster.show,
+[data-anim="slide"] .mapban.show,
+[data-anim="slide"] .roundhistory.show,
+[data-anim="slide"] .soon.show { transform: none; }
+
+/* =========================================================================
+ * SCOREBUG SKIN — "R6 BROADCAST"  (data-skin="r6", set by OV.applyTheme)
+ * Recreates the official Rainbow Six broadcast bar (BLACKLYTE package):
+ *   - team identity pushed to the OUTER edges, names pulled inboard by scores
+ *   - each half washed with its team color, fading to a neutral dark center
+ *   - score plates carry the tint; the center (event logo / timer slot) is a
+ *     recessed neutral block
+ *   - bright segment dividers + a full-width team-gradient baseline
+ * Only the scorebug is reskinned; all other overlays are untouched. The
+ * default skin needs no rules — these only apply when data-skin="r6".
+ * ========================================================================= */
+[data-skin="r6"] .scorebug { height: 50px; }
+
+/* team plates: logo to the outer edge, name + score cluster toward center */
+[data-skin="r6"] .sb-team.left,
+[data-skin="r6"] .sb-team.right { justify-content: space-between; }
+[data-skin="r6"] .sb-team .logo { width: 30px; height: 30px; }
+
+/* team-color wash over each half — strongest near the center, fading outward.
+   Layered over --glass so panel transparency / gradient settings still apply. */
+[data-skin="r6"] .sb-team.left {
+  background: linear-gradient(to left,
+      color-mix(in srgb, var(--teamA) 55%, transparent), transparent 70%), var(--glass);
+  border-top-color: var(--teamA);
+}
+[data-skin="r6"] .sb-team.right {
+  background: linear-gradient(to right,
+      color-mix(in srgb, var(--teamB) 55%, transparent), transparent 70%), var(--glass);
+  border-top-color: var(--teamB);
+}
+
+/* scores continue the tint; center stays a recessed neutral timer/logo block */
+[data-skin="r6"] .sb-score.left {
+  background: linear-gradient(to left,
+      color-mix(in srgb, var(--teamA) 30%, transparent), transparent), var(--glass-2);
+}
+[data-skin="r6"] .sb-score.right {
+  background: linear-gradient(to right,
+      color-mix(in srgb, var(--teamB) 30%, transparent), transparent), var(--glass-2);
+}
+[data-skin="r6"] .sb-center {
+  background: linear-gradient(rgba(0,0,0,.30), rgba(0,0,0,.30)), var(--glass-2);
+}
+
+/* full-width baseline (team blue -> neutral -> team orange) replaces the
+   per-team bottom bar; wipes in from the center with the rest of the bug */
+[data-skin="r6"] .sb-bar-color { display: none; }
+[data-skin="r6"] .scorebug::after {
+  content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 2px; z-index: 6;
+  background: linear-gradient(90deg, var(--teamA), rgba(255,255,255,.4) 50%, var(--teamB));
+  transform: scaleX(0); transform-origin: center;
+  transition: transform .5s var(--snap) .3s;
+}
+[data-skin="r6"] .scorebug.show::after { transform: scaleX(1); }
+
+/* =========================================================================
+ * TOURNAMENT BRACKET (full-screen scene)
+ * Group stage (4 groups, double elimination) across the top; playoffs
+ * (single-elim QF -> SF -> Final tree) below. Driven by state.bracket.
+ * Put this in its own OBS scene. Geometry of the playoffs connectors is
+ * tuned to fixed match height / gaps below — keep them in sync if edited.
+ *
+ * Backdrop: reuses the shared animated layers ([data-ss-bg] + .ssb inside a
+ * .soon-bg element) so the bracket gets the same broadcast-grade motion as
+ * the Starting Soon scene, chosen live from state.bracket.bg.
+ * ========================================================================= */
+.bracket {
+  position: absolute; inset: 0; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 0; padding: 20px 48px;
+  opacity: 0; transition: opacity .5s ease;
+}
+.bracket.show { opacity: 1; }
+/* keep the animated backdrop behind the tree; pause it while hidden */
+.bracket > .soon-bg { z-index: 0; }
+.bracket:not(.show) .ssb { animation-play-state: paused; }
+.br-title, .br-stage-label, .br-groups, .br-playoffs { position: relative; z-index: 1; }
+
+.br-title {
+  font-family: var(--display); font-size: 52px; line-height: 1; letter-spacing: 3px;
+  text-transform: uppercase; text-align: center; color: #fff;
+  position: relative; padding-bottom: 14px; margin-bottom: 4px;
+  text-shadow: 0 4px 22px rgba(0,0,0,.6);
+  clip-path: inset(0 100% 0 0); transition: clip-path .6s var(--snap) .1s;
+}
+.bracket.show .br-title { clip-path: inset(0 0 0 0); }
+/* dual-tone accent rule under the headline */
+.br-title::after {
+  content: ""; position: absolute; left: 50%; bottom: 0; transform: translateX(-50%);
+  width: 240px; height: 3px;
+  background: linear-gradient(90deg, transparent, var(--accent), var(--accent-2), transparent);
+  box-shadow: 0 0 16px color-mix(in srgb, var(--accent) 60%, transparent);
+}
+
+.br-stage-label {
+  font-family: var(--cond); font-weight: 600; font-size: 17px; letter-spacing: 5px;
+  text-transform: uppercase; color: var(--accent); margin: 8px 0 10px;
+  position: relative; padding: 0 18px;
+  opacity: 0; transform: translateY(6px); transition: opacity .45s ease .25s, transform .45s ease .25s;
+}
+.bracket.show .br-stage-label { opacity: 1; transform: translateY(0); }
+.br-stage-label::before, .br-stage-label::after {
+  content: ""; position: absolute; top: 50%; width: 130px; height: 2px;
+  background: linear-gradient(90deg, transparent, var(--accent));
+}
+.br-stage-label::before { right: 100%; }
+.br-stage-label::after { left: 100%; transform: scaleX(-1); }
+
+/* ---- Group stage: four panels in a row ---------------------------------- */
+.br-groups { display: flex; gap: 20px; justify-content: center; align-items: stretch;
+  width: 100%; max-width: 1720px; }
+.br-group {
+  flex: 1 1 0; max-width: 430px; min-width: 0;
+  background: linear-gradient(180deg, rgba(20,27,38,.92), rgba(9,13,19,.94));
+  border: 1px solid rgba(255,255,255,.06); border-top: 3px solid var(--accent);
+  border-radius: 5px; box-shadow: 0 20px 44px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.04);
+  padding: 0 13px 13px; display: flex; flex-direction: column; gap: 6px;
+  opacity: 0; transform: translateY(26px);
+  transition: opacity .5s ease, transform .6s var(--snap);
+  transition-delay: calc(var(--gi, 0) * .08s + .3s);
+}
+.bracket.show .br-group { opacity: 1; transform: translateY(0); }
+/* full-bleed group header with an accent flag chip */
+.br-ghead {
+  font-family: var(--display); font-size: 25px; line-height: 1; letter-spacing: 2px;
+  text-transform: uppercase; color: #fff; margin: 0 -13px 5px; padding: 11px 14px;
+  display: flex; align-items: center; gap: 11px;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 26%, transparent), transparent 72%);
+  border-bottom: 1px solid rgba(255,255,255,.1);
+}
+.br-ghead::before {
+  content: ""; flex: 0 0 auto; width: 7px; height: 19px; border-radius: 1px;
+  background: var(--accent); box-shadow: 0 0 12px var(--accent);
+}
+
+/* ---- A single match card (shared by groups + playoffs) ------------------ */
+.brm {
+  position: relative; background: rgba(255,255,255,.022);
+  border: 1px solid rgba(255,255,255,.05); border-radius: 3px;
+  display: flex; flex-direction: column; overflow: hidden;
+}
+.brm-lbl {
+  font-family: var(--cond); font-weight: 600; font-size: 10px; letter-spacing: 2px;
+  text-transform: uppercase; color: #7e90a8; line-height: 1;
+  padding: 4px 10px 3px; background: rgba(0,0,0,.28);
+}
+.brm-row {
+  display: flex; align-items: stretch; gap: 0;
+  border-left: 3px solid transparent; min-height: 28px;
+}
+.brm-row + .brm-row { border-top: 1px solid rgba(255,255,255,.05); }
+.brm-name {
+  font-family: var(--cond); font-weight: 700; font-size: 18px; line-height: 1.1;
+  text-transform: uppercase; letter-spacing: .5px; color: #dce4ee;
+  flex: 1 1 0; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  display: flex; align-items: center; padding: 2px 10px;
+}
+.brm-name.tbd { color: #56627a; font-weight: 600; font-style: italic; }
+.brm-score {
+  font-family: var(--display); font-size: 19px; line-height: 1; flex: 0 0 36px; width: 36px;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(0,0,0,.3); color: #c4cedd; letter-spacing: 1px;
+}
+/* winner / loser emphasis */
+.brm-row.win { border-left-color: var(--accent-2);
+  background: linear-gradient(90deg, color-mix(in srgb, var(--accent-2) 20%, transparent), transparent 72%); }
+.brm-row.win .brm-name { color: #fff; }
+.brm-row.win .brm-score { background: var(--accent-2); color: #0a0e14; font-weight: 700; }
+.brm-row.lose { opacity: .62; }
+.brm-row.lose .brm-name, .brm-row.lose .brm-score { color: #8893a6; }
+
+/* ---- Playoffs: single-elim tree with connectors ------------------------ *
+ * Geometry (must stay consistent): match height --mh, the column height is
+ * fixed so every round's space-around lands matches on the same centers.
+ * ------------------------------------------------------------------------ */
+.br-playoffs { display: flex; justify-content: center; width: 100%; }
+.ko {
+  --mh: 74px; --hgap: 32px;
+  height: 400px; display: flex; gap: calc(var(--hgap) * 2);
+}
+.ko-round { display: flex; flex-direction: column; justify-content: space-around;
+  height: 100%; width: 236px; }
+.ko-round.ko-final { justify-content: center; }
+.ko-pair { position: relative; display: flex; flex-direction: column;
+  justify-content: center; gap: 40px; }
+.ko-pair.sf { gap: 126px; }      /* tuned so SF matches align to QF pair centers */
+.ko-m { height: var(--mh); display: flex; }
+.ko-m .brm { flex: 1 1 0; justify-content: center; }
+
+/* connector lines — horizontal stub from each match, a vertical spine
+   joining the pair, and a forward stub from the pair center to the next round */
+.ko-pair > .ko-m::after {
+  content: ""; position: absolute; left: 100%; top: 50%;
+  width: var(--hgap); height: 2px; background: var(--divider); transform: translateY(-1px);
+}
+.ko-pair::before {
+  content: ""; position: absolute; left: calc(100% + var(--hgap));
+  top: calc(var(--mh) / 2); height: calc(var(--mh) + 40px);
+  width: 2px; background: var(--divider);
+}
+.ko-pair.sf::before { height: calc(var(--mh) + 126px); }
+.ko-pair::after {
+  content: ""; position: absolute; left: calc(100% + var(--hgap)); top: 50%;
+  width: var(--hgap); height: 2px; background: var(--divider); transform: translateY(-1px);
+}
+/* each .ko-m is absolutely-stub-anchored to its own right edge */
+.ko-pair > .ko-m { position: relative; }
+.ko-final .ko-m { width: 236px; }
+
+/* the grand final gets a gold frame + glow to crown the tree */
+.ko-final .brm {
+  border: 1px solid color-mix(in srgb, var(--accent-2) 55%, transparent);
+  box-shadow: 0 0 26px color-mix(in srgb, var(--accent-2) 30%, transparent);
+}
+.ko-final .brm-lbl {
+  color: #0a0e14; letter-spacing: 3px; text-align: center;
+  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+}
+
+/* entrance: rounds rise in sequence after the groups */
+.ko-round { opacity: 0; transform: translateY(22px);
+  transition: opacity .5s ease, transform .6s var(--snap); }
+.bracket.show .ko-round { opacity: 1; transform: translateY(0); }
+.bracket.show .ko-round:nth-child(1) { transition-delay: .55s; }
+.bracket.show .ko-round:nth-child(2) { transition-delay: .68s; }
+.bracket.show .ko-round:nth-child(3) { transition-delay: .81s; }
+
+/* generic hidden */
+.hidden { display: none !important; }
