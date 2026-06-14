@@ -1,6 +1,7 @@
 import { Routes, Route } from 'react-router-dom';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { ToastProvider } from '@/contexts/ToastContext';
+import { SettingsProvider } from '@/contexts/SettingsContext';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import Layout from '@/components/layout/Layout';
 import ProtectedRoute from '@/components/routing/ProtectedRoute';
@@ -30,6 +31,7 @@ const App = () => (
   <ErrorBoundary>
     <ToastProvider>
       <AuthProvider>
+        <SettingsProvider>
         <Layout>
           <Routes>
             <Route path="/" element={<Home />} />
@@ -90,6 +92,7 @@ const App = () => (
             <Route path="*" element={<NotFound />} />
           </Routes>
         </Layout>
+        </SettingsProvider>
       </AuthProvider>
     </ToastProvider>
   </ErrorBoundary>

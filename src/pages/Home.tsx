@@ -15,8 +15,9 @@ import { listTeams } from '@/services/teamService';
 import { listArticles } from '@/services/newsService';
 import { listSponsors } from '@/services/sponsorService';
 import type { Tournament, Team, NewsArticle, Sponsor } from '@/types';
-import { getGame, BRAND_NAME } from '@/utils/constants';
+import { getGame } from '@/utils/constants';
 import { formatDate, truncate } from '@/utils/helpers';
+import { useSiteSettings } from '@/contexts/SettingsContext';
 import TournamentCard from '@/components/tournaments/TournamentCard';
 import TeamCard from '@/components/teams/TeamCard';
 import SectionHeader from '@/components/ui/SectionHeader';
@@ -27,6 +28,7 @@ import { ListSkeleton } from '@/components/ui/Skeleton';
 import EmptyState from '@/components/ui/EmptyState';
 
 const Home = () => {
+  const { settings } = useSiteSettings();
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
   const [news, setNews] = useState<NewsArticle[]>([]);
@@ -156,10 +158,10 @@ const Home = () => {
           ) : (
             <div className="rounded-2xl border border-brand-border bg-gradient-to-br from-brand-panel to-brand-dark p-12 text-center md:p-20">
               <h1 className="heading-display text-4xl font-bold text-white md:text-6xl">
-                Welcome to <span className="text-brand-red">{BRAND_NAME}</span>
+                {settings.heroTitle}
               </h1>
               <p className="mx-auto mt-4 max-w-xl text-brand-gray">
-                Create and compete in esports tournaments across R6, Valorant, CS2 and more.
+                {settings.heroSubtitle}
               </p>
               <div className="mt-8 flex justify-center gap-3">
                 <Link to="/register"><Button size="lg" leftIcon={<FiZap />}>Get Started</Button></Link>

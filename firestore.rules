@@ -55,6 +55,13 @@ service cloud.firestore {
       allow update, delete: if isSignedIn();
     }
 
+    // Site settings: a single public-read document (`settings/site`) holding the
+    // editable brand/copy. Only staff may change it.
+    match /settings/{doc} {
+      allow read: if true;
+      allow write: if isStaff();
+    }
+
     // Tournaments: public read (drafts filtered client-side); staff write.
     match /tournaments/{id} {
       allow read: if true;

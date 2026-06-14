@@ -77,6 +77,9 @@ export const uploadTournamentBanner = (file: File) =>
 export const uploadNewsCover = (file: File) =>
   uploadImage('news', file);
 
+export const uploadSponsorLogo = (file: File) =>
+  uploadImage('sponsors', file);
+
 /**
  * No-op on the free, server-less setup.
  *

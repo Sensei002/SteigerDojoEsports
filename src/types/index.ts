@@ -254,6 +254,40 @@ export interface Sponsor {
   createdAt?: Timestamp;
 }
 
+// ------------------------------- Site settings ----------------------------
+
+/** Editable social links shown in the footer. Empty/omitted ones are hidden. */
+export interface SocialLinks {
+  discord?: string;
+  twitter?: string;
+  twitch?: string;
+  youtube?: string;
+  instagram?: string;
+}
+
+export interface LegalLink {
+  label: string;
+  url: string;
+}
+
+/**
+ * Site-wide editable content, stored as a single Firestore document at
+ * `settings/site`. Lets an organizer change brand/identity and key copy without
+ * touching code. Missing fields fall back to DEFAULT_SETTINGS in the service.
+ */
+export interface SiteSettings {
+  brandName: string;
+  logoPrimary: string;   // first half of the wordmark, e.g. "Steiger"
+  logoSecondary: string; // accented second half, e.g. "Dojo"
+  tagline: string;       // footer "about" blurb
+  contactEmail: string;
+  socials: SocialLinks;
+  heroTitle: string;     // home hero headline (shown when no banners)
+  heroSubtitle: string;  // home hero sub-text
+  legalLinks: LegalLink[];
+  updatedAt?: Timestamp;
+}
+
 export interface Notification {
   id: string;
   userId: string;
