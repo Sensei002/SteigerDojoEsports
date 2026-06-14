@@ -129,3 +129,44 @@ export const withdrawRegistration = async (reg: Registration): Promise<void> => 
 
 export const removeRegistration = (id: string) =>
   deleteDoc(doc(db, REGISTRATIONS, id));
+
+export interface McPushResult {
+  /** Non-withdrawn registrations considered for the push. */
+  total: number;
+  /** How many teams were written into Match Control. */
+  pushed: number;
+  teamNames: string[];
+}
+
+/**
+ * Push every non-withdrawn registered team for a tournament into its Match
+ * Control room (`rooms/<tournamentId>/teams`) so the broadcast overlays can use
+ * the name/tag/logo/roster. This is the on-demand, bulk version of the per-team
+ * mirror that `registerTeam` does automatically — handy to (re)sync teams that
+ * registered earlier or whose roster changed.
+ *
+ * Open the Match Control control panel / overlays with `?room=<tournamentId>`
+ * to broadcast with these teams.
+ */
+export const pushTournamentTeamsToMatchControl = async (
+  tournamentId: string
+): Promise<McPushResult> => {
+  const regs = await getRegistrations(tournamentId);
+  const active = regs.filter((r) => r.status !== 'withdrawn');
+
+  let pushed = 0;
+  const teamNames: string[] = [];
+  for (const r of active) {
+    await syncTeamToMatchControl(tournamentId, {
+      teamId: r.teamId,
+      teamName: r.teamName,
+      teamTag: r.teamTag,
+      teamLogoUrl: r.teamLogoUrl,
+      roster: r.roster,
+    });
+    pushed += 1;
+    teamNames.push(r.teamName);
+  }
+
+  return { total: active.length, pushed, teamNames };
+};

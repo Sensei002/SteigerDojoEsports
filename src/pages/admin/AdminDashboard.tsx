@@ -2,9 +2,9 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   FiUsers, FiAward, FiActivity, FiGrid, FiFileText, FiStar,
-  FiTrash2, FiPlus, FiSend, FiShield, FiRadio, FiDownloadCloud,
+  FiTrash2, FiPlus, FiSend, FiShield, FiRadio, FiUploadCloud, FiExternalLink,
 } from 'react-icons/fi';
-import { importMatchControlTeams } from '@/services/matchControlImport';
+import { pushTournamentTeamsToMatchControl } from '@/services/registrationService';
 import { listUsers, setUserRole } from '@/services/userService';
 import { listTeams, deleteTeam } from '@/services/teamService';
 import { listTournaments, deleteTournament } from '@/services/tournamentService';
@@ -14,7 +14,6 @@ import { broadcast } from '@/services/notificationService';
 import { uploadNewsCover } from '@/services/storageService';
 import type { AppUser, Team, Tournament, NewsArticle, Sponsor, UserRole } from '@/types';
 import { ROLES, ROLE_LABEL, getGame } from '@/utils/constants';
-import { truncate } from '@/utils/helpers';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
 import SectionHeader from '@/components/ui/SectionHeader';
@@ -31,7 +30,7 @@ type Tab = 'overview' | 'users' | 'teams' | 'tournaments' | 'news' | 'sponsors';
 
 const AdminDashboard = () => {
   const { user, isAdmin } = useAuth();
-  const { success, error } = useToast();
+  const { success } = useToast();
 
   const [tab, setTab] = useState<Tab>('overview');
   const [users, setUsers] = useState<AppUser[]>([]);
@@ -43,7 +42,7 @@ const AdminDashboard = () => {
   const [newsOpen, setNewsOpen] = useState(false);
   const [sponsorOpen, setSponsorOpen] = useState(false);
   const [announceOpen, setAnnounceOpen] = useState(false);
-  const [importing, setImporting] = useState(false);
+  const [pushOpen, setPushOpen] = useState(false);
 
   const load = async () => {
     const [u, tm, tn, n, s] = await Promise.all([
@@ -83,24 +82,6 @@ const AdminDashboard = () => {
     await deleteTeam(id); success('Team deleted.'); await load();
   };
 
-  const importTeams = async () => {
-    if (!user) return;
-    if (!confirm('Import teams from STGR Match Control into the site? Already-imported teams are skipped.')) return;
-    setImporting(true);
-    try {
-      const r = await importMatchControlTeams(user.uid);
-      if (r.imported === 0) {
-        success(`Already up to date — ${r.skipped} team(s) already imported.`);
-      } else {
-        success(`Imported ${r.imported} team(s)${r.skipped ? `, ${r.skipped} already present` : ''}.`);
-      }
-      await load();
-    } catch (e) {
-      error((e as Error).message);
-    } finally {
-      setImporting(false);
-    }
-  };
   const removeTournament = async (id: string) => {
     if (!confirm('Delete this tournament?')) return;
     await deleteTournament(id); success('Tournament deleted.'); await load();
@@ -175,8 +156,8 @@ const AdminDashboard = () => {
         <>
         <div className="mb-4 flex items-center justify-between gap-3">
           <p className="text-sm text-brand-gray">{teams.length} team{teams.length === 1 ? '' : 's'}</p>
-          <Button size="sm" variant="secondary" leftIcon={<FiDownloadCloud />} loading={importing} onClick={importTeams}>
-            Import from Match Control
+          <Button size="sm" variant="secondary" leftIcon={<FiUploadCloud />} onClick={() => setPushOpen(true)}>
+            Push to Match Control
           </Button>
         </div>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -243,6 +224,7 @@ const AdminDashboard = () => {
       <NewsModal open={newsOpen} onClose={() => setNewsOpen(false)} authorId={user!.uid} authorName={user!.username} onSaved={load} />
       <SponsorModal open={sponsorOpen} onClose={() => setSponsorOpen(false)} onSaved={load} />
       <AnnounceModal open={announceOpen} onClose={() => setAnnounceOpen(false)} userIds={users.map((u) => u.uid)} />
+      <PushModal open={pushOpen} onClose={() => setPushOpen(false)} tournaments={tournaments} />
     </div>
   );
 };
@@ -310,6 +292,58 @@ const SponsorModal = ({ open, onClose, onSaved }: { open: boolean; onClose: () =
       <div className="space-y-4">
         <Input label="Name" value={name} onChange={(e) => setName(e.target.value)} />
         <Input label="Website URL" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://…" />
+      </div>
+    </Modal>
+  );
+};
+
+const PushModal = ({ open, onClose, tournaments }: { open: boolean; onClose: () => void; tournaments: Tournament[] }) => {
+  const { success, error } = useToast();
+  const [tournamentId, setTournamentId] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  // The Match Control room for a tournament is just its id (matches the auto-sync
+  // done on registration). Broadcasters open overlays with ?room=<this>.
+  const controlUrl = tournamentId
+    ? `${import.meta.env.BASE_URL}matchcontrol/control.html?room=${tournamentId}`
+    : '';
+
+  const push = async () => {
+    if (!tournamentId) return error('Pick a tournament first.');
+    setBusy(true);
+    try {
+      const r = await pushTournamentTeamsToMatchControl(tournamentId);
+      if (r.pushed === 0) {
+        success('No registered teams to push for that tournament yet.');
+      } else {
+        success(`Pushed ${r.pushed} team${r.pushed === 1 ? '' : 's'} to Match Control.`);
+      }
+      onClose();
+    } catch (e) { error((e as Error).message); }
+    finally { setBusy(false); }
+  };
+
+  return (
+    <Modal open={open} onClose={onClose} title="Push Teams to Match Control"
+      footer={<><Button variant="ghost" onClick={onClose}>Cancel</Button><Button onClick={push} loading={busy} leftIcon={<FiUploadCloud />}>Push Teams</Button></>}>
+      <div className="space-y-4">
+        <p className="text-sm text-brand-gray">
+          Sends every registered team (name, tag, logo, roster) for the chosen tournament into its
+          Match Control room so the broadcast overlays can use them. Open the control panel / overlays
+          with <code className="rounded bg-brand-dark px-1 text-brand-light">?room={tournamentId || '<tournament>'}</code> to go live with these teams.
+        </p>
+        <div>
+          <label className="mb-1 block text-xs uppercase tracking-wide text-brand-gray">Tournament</label>
+          <select value={tournamentId} onChange={(e) => setTournamentId(e.target.value)} className="w-full rounded-lg border border-brand-border bg-brand-dark px-3 py-2 text-sm text-brand-light">
+            <option value="">Select a tournament…</option>
+            {tournaments.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+          </select>
+        </div>
+        {controlUrl && (
+          <a href={controlUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-sm font-medium text-brand-red hover:underline">
+            <FiExternalLink size={14} /> Open Match Control for this room
+          </a>
+        )}
       </div>
     </Modal>
   );
