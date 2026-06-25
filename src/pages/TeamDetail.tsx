@@ -10,7 +10,7 @@ import { searchUsers } from '@/services/userService';
 import { pushNotification } from '@/services/notificationService';
 import { getTeamRegistrations } from '@/services/registrationService';
 import type { Team, AppUser, TeamMember, Registration } from '@/types';
-import { getGame, REGIONS } from '@/utils/constants';
+import { REGIONS } from '@/utils/constants';
 import { winRate } from '@/utils/helpers';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
@@ -44,12 +44,12 @@ const TeamDetail = () => {
     setLoading(false);
   };
 
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, [id]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { load(); }, [id]);
 
   if (loading) return <div className="flex min-h-[60vh] items-center justify-center"><Spinner /></div>;
   if (!team) return <div className="container-app py-20"><EmptyState title="Team not found" /></div>;
 
-  const game = getGame(team.game);
   const region = REGIONS.find((r) => r.id === team.region);
   const isCaptain = user?.uid === team.captainId;
   const isMember = team.members.some((m) => m.uid === user?.uid);

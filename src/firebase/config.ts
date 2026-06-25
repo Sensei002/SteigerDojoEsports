@@ -29,7 +29,6 @@ export const isFirebaseConfigured =
   !firebaseConfig.projectId.startsWith('your-');
 
 if (!isFirebaseConfigured) {
-  // eslint-disable-next-line no-console
   console.warn(
     '%c[SteigerDojoEsports] Firebase is not configured.',
     'color:#e11d2a;font-weight:bold',

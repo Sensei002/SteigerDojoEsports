@@ -1,11 +1,7 @@
 import {
   collection,
   doc,
-  addDoc,
-  setDoc,
-  getDoc,
   getDocs,
-  deleteDoc,
   query,
   where,
   writeBatch,
@@ -86,6 +82,7 @@ export const generateBracket = async (
   const matchIds: string[] = [];
   for (const d of drafts) {
     const ref = localToRef.get(d.localId)!;
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { localId, nextMatchId, nextLoserMatchId, ...rest } = d;
     const resolvedNext = nextMatchId ? localToRef.get(nextMatchId)?.id ?? null : null;
     const resolvedLoser = nextLoserMatchId
@@ -98,7 +95,7 @@ export const generateBracket = async (
       nextLoserMatchId: resolvedLoser,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
-    } as Omit<Match, 'id'>);
+    } as unknown as Omit<Match, 'id'>);
     matchIds.push(ref.id);
   }
 

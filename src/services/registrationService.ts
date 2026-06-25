@@ -101,7 +101,6 @@ export const registerTeam = async (
       roster: data.roster,
     });
   } catch (e) {
-    // eslint-disable-next-line no-console
     console.warn('[matchControlSync] could not mirror team to Match Control:', e);
   }
   return ref.id;
@@ -122,7 +121,6 @@ export const withdrawRegistration = async (reg: Registration): Promise<void> => 
   try {
     await removeTeamFromMatchControl(reg.tournamentId, reg.teamId);
   } catch (e) {
-    // eslint-disable-next-line no-console
     console.warn('[matchControlSync] could not remove team from Match Control:', e);
   }
 };

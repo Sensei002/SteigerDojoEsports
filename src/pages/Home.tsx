@@ -23,7 +23,6 @@ import TeamCard from '@/components/teams/TeamCard';
 import SectionHeader from '@/components/ui/SectionHeader';
 import Button from '@/components/ui/Button';
 import GameBadge from '@/components/ui/GameBadge';
-import Avatar from '@/components/ui/Avatar';
 import { ListSkeleton } from '@/components/ui/Skeleton';
 import EmptyState from '@/components/ui/EmptyState';
 

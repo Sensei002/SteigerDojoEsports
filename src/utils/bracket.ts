@@ -24,7 +24,7 @@ export const nextPowerOfTwo = (n: number): number => {
  * Produces the classic 1 v 16, 8 v 9 ... ordering so top seeds meet late.
  */
 export const seedOrder = (size: number): number[] => {
-  let rounds = Math.log2(size);
+  const rounds = Math.log2(size);
   let matches: number[] = [1, 2];
   for (let r = 1; r < rounds; r++) {
     const next: number[] = [];

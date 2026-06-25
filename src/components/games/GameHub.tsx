@@ -5,7 +5,7 @@ import { listPublicTournaments } from '@/services/tournamentService';
 import { listTeams } from '@/services/teamService';
 import type { GameId, Tournament, Team } from '@/types';
 import { getGame } from '@/utils/constants';
-import { formatDate, winRate } from '@/utils/helpers';
+import { winRate } from '@/utils/helpers';
 import TournamentCard from '@/components/tournaments/TournamentCard';
 import Avatar from '@/components/ui/Avatar';
 import SectionHeader from '@/components/ui/SectionHeader';

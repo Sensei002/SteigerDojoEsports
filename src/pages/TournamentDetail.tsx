@@ -13,7 +13,7 @@ import {
 import { getTeam } from '@/services/teamService';
 import { getTournamentMatches } from '@/services/matchService';
 import { generateBracket } from '@/services/bracketService';
-import type { Tournament, Registration, Match, Team } from '@/types';
+import type { Tournament, Registration, Match } from '@/types';
 import {
   getGame, TOURNAMENT_STATUS_META, TOURNAMENT_FORMATS, REGIONS, PLATFORMS,
 } from '@/utils/constants';
@@ -59,7 +59,8 @@ const TournamentDetail = () => {
     setLoading(false);
   };
 
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, [id]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { load(); }, [id]);
 
   if (loading) return <div className="flex min-h-[60vh] items-center justify-center"><Spinner /></div>;
   if (!t) return <div className="container-app py-20"><EmptyState title="Tournament not found" /></div>;

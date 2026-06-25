@@ -7,7 +7,7 @@ import { getUser, updateUserProfile } from '@/services/userService';
 import { uploadAvatar } from '@/services/storageService';
 import { getUserInvites, respondToInvite } from '@/services/teamService';
 import type { AppUser, TeamInvite, TeamMember } from '@/types';
-import { GAMES, REGIONS, ROLE_LABEL, getGame } from '@/utils/constants';
+import { GAMES, REGIONS, ROLE_LABEL } from '@/utils/constants';
 import { winRate } from '@/utils/helpers';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
@@ -16,7 +16,6 @@ import Badge from '@/components/ui/Badge';
 import GameBadge from '@/components/ui/GameBadge';
 import Button from '@/components/ui/Button';
 import Modal from '@/components/ui/Modal';
-import Input from '@/components/ui/Input';
 import Textarea from '@/components/ui/Textarea';
 import Select from '@/components/ui/Select';
 import ImageUpload from '@/components/ui/ImageUpload';
@@ -49,7 +48,8 @@ const Profile = () => {
     setLoading(false);
   };
 
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, [id, me]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { load(); }, [id, me]);
 
   if (loading) return <div className="flex min-h-[60vh] items-center justify-center"><Spinner /></div>;
   if (!profile) return <div className="container-app py-20"><EmptyState title="Player not found" /></div>;
